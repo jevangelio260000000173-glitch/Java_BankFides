@@ -1,7 +1,7 @@
-
+package src;
 import java.util.Scanner;
 
-public class TransactionProtection {
+public class Transaction_Protection {
 
     static Scanner sc = new Scanner(System.in);
 
