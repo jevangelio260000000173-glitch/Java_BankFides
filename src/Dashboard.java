@@ -1,18 +1,22 @@
+
 package src;
 
+import java.util.List;
 import java.util.Scanner;
 
 public class Dashboard {
 
     private final Scanner scanner;
+    private final FileDatabase database;
 
     public Dashboard(Scanner scanner) {
         this.scanner = scanner;
+        this.database = new FileDatabase();
     }
 
-    // ==========================================
+    // =========================================================
     // CUSTOMER DASHBOARD
-    // ==========================================
+    // =========================================================
 
     public void customerDashboard(
             String fullName,
@@ -25,132 +29,33 @@ public class Dashboard {
         int choice;
 
         do {
+            // Refresh customer information before displaying the dashboard.
+            double[] latestData = refreshCustomerData(accountID);
+
+            if (latestData != null) {
+                balance = latestData[0];
+                totalDeposits = latestData[1];
+                rewardPoints = (int) latestData[2];
+            }
+
             System.out.println("\n==================================================");
-            System.out.println("          SAVINGS MANAGEMENT SYSTEM");
-            System.out.println("                    CUSTOMER");
+            System.out.println("              BANCOFIDES DASHBOARD");
             System.out.println("==================================================");
             System.out.println("Welcome, " + fullName + "!");
-            System.out.println();
-            System.out.println("Account ID : " + accountID);
-            System.out.println("Username   : " + username);
-
-            System.out.println("--------------------------------------------------");
-            System.out.println("                 ACCOUNT SUMMARY");
+            System.out.println("Account ID        : " + accountID);
+            System.out.println("Username          : " + username);
             System.out.println("--------------------------------------------------");
             System.out.printf("Available Balance : PHP %,.2f%n", balance);
-            System.out.printf("Total Deposits    : PHP %,.2f%n", totalDeposits);
-            System.out.println("Reward Points     : " + rewardPoints);
-
-            System.out.println("--------------------------------------------------");
+            System.out.printf("Total Deposits     : PHP %,.2f%n", totalDeposits);
+            System.out.println("Reward Points      : " + rewardPoints);
+            System.out.println("==================================================");
             System.out.println("                  CUSTOMER MENU");
-            System.out.println("--------------------------------------------------");
+            System.out.println("==================================================");
             System.out.println("[1] Cash In / Deposit");
             System.out.println("[2] Transactions");
             System.out.println("[3] Interest Growth Calculator");
-            System.out.println("[4] Save-to-Earn Rewards");
-            System.out.println("[5] Transaction History");
-            System.out.println("[6] Account Information");
-            System.out.println("[7] Logout");
-            System.out.println("==================================================");
-
-            choice = readChoice(1, 7);
-
-            switch (choice) {
-
-                case 1:
-                    showMessage(
-                        "Cash In / Deposit",
-                        "Deposit functionality is not connected yet."
-                    );
-                    break;
-
-                case 2:
-                    showMessage(
-                        "Transactions",
-                        "Transaction functions are not connected yet."
-                    );
-                    break;
-
-                case 3:
-                    showMessage(
-                        "Interest Growth Calculator",
-                        "Interest calculator is not connected yet."
-                    );
-                    break;
-
-                case 4:
-                    showMessage(
-                        "Save-to-Earn Rewards",
-                        "Rewards functionality is not connected yet."
-                    );
-                    break;
-
-                case 5:
-                    showMessage(
-                        "Transaction History",
-                        "No transaction history is connected yet."
-                    );
-                    break;
-
-                case 6:
-                    showCustomerInformation(
-                        fullName,
-                        accountID,
-                        username,
-                        balance,
-                        totalDeposits,
-                        rewardPoints
-                    );
-                    break;
-
-                case 7:
-                    System.out.println("\nLogging out...");
-                    System.out.println("Returning to the main menu.");
-                    break;
-            }
-
-        } while (choice != 7);
-    }
-
-    // ==========================================
-    // STAFF DASHBOARD
-    // ==========================================
-
-    // Keeps compatibility with existing calls.
-    public void staffDashboard() {
-        staffDashboard("S1001", "Staff Member");
-    }
-
-    // Displays the actual staff account details.
-    public void staffDashboard(String staffID, String fullName) {
-
-        int choice;
-
-        do {
-            System.out.println("\n==================================================");
-            System.out.println("          SAVINGS MANAGEMENT SYSTEM");
-            System.out.println("                      STAFF");
-            System.out.println("==================================================");
-            System.out.println("Welcome, " + fullName + "!");
-            System.out.println();
-            System.out.println("Staff ID : " + staffID);
-
-            System.out.println("--------------------------------------------------");
-            System.out.println("                  STAFF SUMMARY");
-            System.out.println("--------------------------------------------------");
-            System.out.println("Total Customers       : Not connected");
-            System.out.println("Pending Deposits      : Not connected");
-            System.out.println("Transactions Today    : Not connected");
-            System.out.println("Reported Issues       : Not connected");
-
-            System.out.println("--------------------------------------------------");
-            System.out.println("                    STAFF MENU");
-            System.out.println("--------------------------------------------------");
-            System.out.println("[1] Search Customer Account");
-            System.out.println("[2] Review Transactions");
-            System.out.println("[3] Verify Pending Deposits");
-            System.out.println("[4] View Transaction History");
-            System.out.println("[5] Report Transaction Issue");
+            System.out.println("[4] Transaction History");
+            System.out.println("[5] Account Information");
             System.out.println("[6] Logout");
             System.out.println("==================================================");
 
@@ -158,152 +63,265 @@ public class Dashboard {
 
             switch (choice) {
 
-                case 1:
-                    showMessage(
-                        "Search Customer Account",
-                        "Customer search is not connected yet."
-                    );
-                    break;
+                // CASH IN / DEPOSIT
+                case 1: {
 
-                case 2:
-                    showMessage(
-                        "Review Transactions",
-                        "Transaction review is not connected yet."
-                    );
-                    break;
+                    DepositManager depositManager =
+                            new DepositManager(scanner);
 
-                case 3:
-                    showMessage(
-                        "Verify Pending Deposits",
-                        "Deposit verification is not connected yet."
-                    );
-                    break;
+                    DepositManager.DepositResult result =
+                            depositManager.deposit(accountID);
 
-                case 4:
-                    showMessage(
-                        "Transaction History",
-                        "Transaction history is not connected yet."
-                    );
-                    break;
+                    if (result != null) {
+                        balance = result.balance;
+                        totalDeposits = result.totalDeposits;
+                        rewardPoints = result.rewardPoints;
+                    }
 
-                case 5:
-                    showMessage(
-                        "Report Transaction Issue",
-                        "Issue reporting is not connected yet."
-                    );
-                    break;
+                    // Read the latest saved account information.
+                    double[] depositData =
+                            refreshCustomerData(accountID);
 
+                    if (depositData != null) {
+                        balance = depositData[0];
+                        totalDeposits = depositData[1];
+                        rewardPoints = (int) depositData[2];
+                    }
+
+                    break;
+                }
+
+                // TRANSACTIONS
+                case 2: {
+
+                    TransactionHistory transactionHistory =
+                            new TransactionHistory(scanner, database);
+
+                    System.out.println("\n==================================================");
+                    System.out.println("                  TRANSACTIONS");
+                    System.out.println("==================================================");
+                    System.out.println("[1] Withdraw");
+                    System.out.println("[2] Transfer");
+                    System.out.println("[3] Return to Dashboard");
+                    System.out.println("==================================================");
+
+                    int transactionChoice = readChoice(1, 3);
+
+                    switch (transactionChoice) {
+
+                        case 1:
+                            transactionHistory.withdraw(accountID);
+                            break;
+
+                        case 2:
+                            transactionHistory.transfer(accountID);
+                            break;
+
+                        case 3:
+                            break;
+                    }
+
+                    // Refresh after withdrawal or transfer.
+                    double[] transactionData =
+                            refreshCustomerData(accountID);
+
+                    if (transactionData != null) {
+                        balance = transactionData[0];
+                        totalDeposits = transactionData[1];
+                        rewardPoints = (int) transactionData[2];
+                    }
+
+                    break;
+                }
+
+                // INTEREST GROWTH CALCULATOR
+                case 3: {
+
+                    InterestGrowthCalculator calculator =
+                            new InterestGrowthCalculator(scanner);
+
+                    calculator.calculateInterest();
+                    break;
+                }
+
+                // TRANSACTION HISTORY
+                case 4: {
+
+                    TransactionHistory historyManager =
+                            new TransactionHistory(scanner, database);
+
+                    historyManager.showHistory(accountID);
+                    break;
+                }
+
+                // ACCOUNT INFORMATION
+                case 5: {
+
+                    accountInformationMenu(
+                            fullName,
+                            accountID,
+                            username
+                    );
+
+                    // Refresh after returning from Account Information.
+                    double[] accountData =
+                            refreshCustomerData(accountID);
+
+                    if (accountData != null) {
+                        balance = accountData[0];
+                        totalDeposits = accountData[1];
+                        rewardPoints = (int) accountData[2];
+                    }
+
+                    break;
+                }
+
+                // LOGOUT
                 case 6:
-                    System.out.println("\nStaff logged out successfully.");
+
+                    System.out.println("\n==================================================");
+                    System.out.println("              LOGGING OUT");
+                    System.out.println("==================================================");
+                    System.out.println(
+                            "Thank you for using BancoFides, "
+                            + fullName + "!"
+                    );
+                    System.out.println(
+                            "You have been logged out successfully."
+                    );
+                    System.out.println("==================================================");
+
                     break;
             }
 
         } while (choice != 6);
     }
 
-    // ==========================================
-    // ADMIN DASHBOARD
-    // ==========================================
+    // =========================================================
+    // ACCOUNT INFORMATION MENU
+    // =========================================================
 
-    // Keeps compatibility with existing calls.
-    public void adminDashboard() {
-        adminDashboard("A1001", "System Administrator");
-    }
-
-    // Displays the actual administrator details.
-    public void adminDashboard(String adminID, String fullName) {
+    private void accountInformationMenu(
+            String fullName,
+            String accountID,
+            String username) {
 
         int choice;
 
         do {
             System.out.println("\n==================================================");
-            System.out.println("          SAVINGS MANAGEMENT SYSTEM");
-            System.out.println("                     ADMIN");
+            System.out.println("              ACCOUNT INFORMATION");
             System.out.println("==================================================");
-            System.out.println("Welcome, " + fullName + "!");
-            System.out.println();
-            System.out.println("Admin ID : " + adminID);
-
-            System.out.println("--------------------------------------------------");
-            System.out.println("                 SYSTEM OVERVIEW");
-            System.out.println("--------------------------------------------------");
-            System.out.println("Total Customers       : Not connected");
-            System.out.println("Total Staff           : Not connected");
-            System.out.println("Total Transactions    : Not connected");
-            System.out.println("Flagged Activities    : Not connected");
-
-            System.out.println("--------------------------------------------------");
-            System.out.println("                    ADMIN MENU");
-            System.out.println("--------------------------------------------------");
-            System.out.println("[1] Manage Customer Accounts");
-            System.out.println("[2] Manage Staff Accounts");
-            System.out.println("[3] View All Transactions");
-            System.out.println("[4] Monitor Transaction Security");
-            System.out.println("[5] Manage Rewards and Interest Settings");
-            System.out.println("[6] View System Activity Logs");
-            System.out.println("[7] Logout");
+            System.out.println("[1] View Account Information");
+            System.out.println("[2] Save-to-Earn Rewards");
+            System.out.println("[3] Return to Dashboard");
             System.out.println("==================================================");
 
-            choice = readChoice(1, 7);
+            choice = readChoice(1, 3);
 
             switch (choice) {
 
-                case 1:
-                    showMessage(
-                        "Manage Customer Accounts",
-                        "Customer account management is not connected yet."
-                    );
+                // VIEW ACCOUNT INFORMATION
+                case 1: {
+
+                    double[] latestData =
+                            refreshCustomerData(accountID);
+
+                    if (latestData != null) {
+                        showCustomerInformation(
+                                fullName,
+                                accountID,
+                                username,
+                                latestData[0],
+                                latestData[1],
+                                (int) latestData[2]
+                        );
+                    }
+
                     break;
+                }
 
-                case 2:
-                    // Open the staff account management menu.
-                    UserAuthentication auth =
-                        new UserAuthentication(scanner);
+                // SAVE-TO-EARN REWARDS
+                case 2: {
 
-                    auth.manageStaffAccounts();
+                    RewardsManager rewardsManager =
+                            new RewardsManager(scanner, database);
+
+                    rewardsManager.open(accountID);
+
                     break;
+                }
 
+                // RETURN TO DASHBOARD
                 case 3:
-                    showMessage(
-                        "View All Transactions",
-                        "Transaction records are not connected yet."
-                    );
-                    break;
 
-                case 4:
-                    showMessage(
-                        "Transaction Security",
-                        "Security monitoring is not connected yet."
-                    );
-                    break;
-
-                case 5:
-                    showMessage(
-                        "Rewards and Interest Settings",
-                        "Settings management is not connected yet."
-                    );
-                    break;
-
-                case 6:
-                    showMessage(
-                        "System Activity Logs",
-                        "Activity logs are not connected yet."
-                    );
-                    break;
-
-                case 7:
                     System.out.println(
-                        "\nAdministrator logged out successfully."
+                            "\nReturning to Customer Dashboard..."
                     );
+
                     break;
             }
 
-        } while (choice != 7);
+        } while (choice != 3);
     }
 
-    // ==========================================
-    // CUSTOMER ACCOUNT INFORMATION
-    // ==========================================
+    // =========================================================
+    // REFRESH CUSTOMER DATA
+    // =========================================================
+
+    private double[] refreshCustomerData(String accountID) {
+
+        List<String> customers = database.readCustomers();
+
+        if (customers == null) {
+            return null;
+        }
+
+        for (String record : customers) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length == 7
+                    && fields[0].equalsIgnoreCase(accountID)) {
+
+                try {
+                    double balance =
+                            Double.parseDouble(fields[4]);
+
+                    double totalDeposits =
+                            Double.parseDouble(fields[5]);
+
+                    int rewardPoints =
+                            Integer.parseInt(fields[6]);
+
+                    return new double[]{
+                        balance,
+                        totalDeposits,
+                        rewardPoints
+                    };
+
+                } catch (NumberFormatException e) {
+
+                    System.out.println(
+                            "Unable to refresh customer account information."
+                    );
+
+                    return null;
+                }
+            }
+        }
+
+        System.out.println("Customer account could not be found.");
+        return null;
+    }
+
+    // =========================================================
+    // CUSTOMER ACCOUNT INFORMATION DISPLAY
+    // =========================================================
 
     private void showCustomerInformation(
             String fullName,
@@ -316,22 +334,514 @@ public class Dashboard {
         System.out.println("\n==================================================");
         System.out.println("               ACCOUNT INFORMATION");
         System.out.println("==================================================");
-        System.out.println("Full Name     : " + fullName);
-        System.out.println("Account ID    : " + accountID);
-        System.out.println("Username      : " + username);
-        System.out.println("Role          : Customer");
-        System.out.printf("Balance       : PHP %,.2f%n", balance);
-        System.out.printf("Total Deposits: PHP %,.2f%n", totalDeposits);
-        System.out.println("Reward Points : " + rewardPoints);
+        System.out.println("Full Name         : " + fullName);
+        System.out.println("Account ID        : " + accountID);
+        System.out.println("Username          : " + username);
+
+        System.out.printf(
+                "Available Balance : PHP %,.2f%n",
+                balance
+        );
+
+        System.out.printf(
+                "Total Deposits     : PHP %,.2f%n",
+                totalDeposits
+        );
+
+        System.out.println("Reward Points      : " + rewardPoints);
+        System.out.println(
+                "Account Status     : "
+                + database.getAccountStatus(accountID)
+        );
+
         System.out.println("==================================================");
 
-        System.out.println("Press Enter to return to the dashboard.");
-        scanner.nextLine();
+        pause();
     }
 
-    // ==========================================
-    // INPUT VALIDATION
-    // ==========================================
+    // =========================================================
+    // STAFF DASHBOARD
+    // =========================================================
+
+    public void staffDashboard() {
+        staffDashboard("S1001", "Staff Member");
+    }
+
+    public void staffDashboard(String staffID, String fullName) {
+
+        int choice;
+
+        do {
+            List<String> customers = database.readCustomers();
+            List<String> transactions = database.readTransactions();
+
+            System.out.println("\n==================================================");
+            System.out.println("               BANCOFIDES STAFF");
+            System.out.println("==================================================");
+            System.out.println("Welcome, " + fullName + "!");
+            System.out.println("Staff ID: " + staffID);
+            System.out.println("--------------------------------------------------");
+            System.out.println("              STAFF DASHBOARD");
+            System.out.println("--------------------------------------------------");
+
+            System.out.println(
+                    "Total Customers       : " + countRecords(customers)
+            );
+
+            System.out.println(
+                    "Total Transactions    : " + countRecords(transactions)
+            );
+
+            System.out.println(
+                    "Pending Deposits      : Not currently tracked"
+            );
+
+            System.out.println(
+                    "Reported Issues       : Not currently tracked"
+            );
+
+            System.out.println("==================================================");
+            System.out.println("                   STAFF MENU");
+            System.out.println("==================================================");
+            System.out.println("[1] Search Customer Account");
+            System.out.println("[2] Review Transactions");
+            System.out.println("[3] Verify Pending Deposits");
+            System.out.println("[4] View Transaction History");
+            System.out.println("[5] Report Transaction Issue");
+            System.out.println("[6] Logout");
+            System.out.println("==================================================");
+
+            choice = readChoice(1, 6);
+
+            switch (choice) {
+
+                // SEARCH CUSTOMER ACCOUNT
+                case 1: {
+
+                    AccountManager accountManager =
+                            new AccountManager(scanner);
+
+                    accountManager.staffCustomerAccountSearch();
+
+                    break;
+                }
+
+                // REVIEW TRANSACTIONS
+                case 2:
+
+                    displayAllTransactions("REVIEW TRANSACTIONS");
+
+                    break;
+
+                // VERIFY PENDING DEPOSITS
+                case 3:
+
+                    showMessage(
+                            "VERIFY PENDING DEPOSITS",
+                            "Your current deposit system processes deposits "
+                            + "immediately. Pending deposit verification "
+                            + "is not yet implemented."
+                    );
+
+                    break;
+
+                // VIEW CUSTOMER TRANSACTION HISTORY
+                case 4: {
+
+                    System.out.println("\n==================================================");
+                    System.out.println("            CUSTOMER TRANSACTION HISTORY");
+                    System.out.println("==================================================");
+
+                    System.out.print("Enter Customer ID: ");
+                    String customerID = scanner.nextLine().trim();
+
+                    if (customerID.isEmpty()) {
+                        System.out.println("Customer ID cannot be empty.");
+                        pause();
+                        break;
+                    }
+
+                    if (!customerExists(customerID)) {
+                        System.out.println("Customer account not found.");
+                        pause();
+                        break;
+                    }
+
+                    displayCustomerTransactions(customerID);
+
+                    break;
+                }
+
+                // REPORT TRANSACTION ISSUE
+                case 5:
+
+                    showMessage(
+                            "REPORT TRANSACTION ISSUE",
+                            "Transaction issue reporting is not yet "
+                            + "connected to an issue-reporting feature."
+                    );
+
+                    break;
+
+                // LOGOUT
+                case 6:
+
+                    System.out.println(
+                            "\nStaff logged out successfully."
+                    );
+
+                    break;
+            }
+
+        } while (choice != 6);
+    }
+
+    // =========================================================
+    // ADMIN DASHBOARD
+    // =========================================================
+
+    public void adminDashboard() {
+        adminDashboard("A1001", "System Administrator");
+    }
+
+    public void adminDashboard(String adminID, String fullName) {
+
+        int choice;
+
+        do {
+            List<String> customers = database.readCustomers();
+            List<String> staff = database.readStaff();
+            List<String> transactions = database.readTransactions();
+            List<String> activityLogs = database.readActivityLogs();
+
+            System.out.println("\n==================================================");
+            System.out.println("              BANCOFIDES ADMIN");
+            System.out.println("==================================================");
+            System.out.println("Welcome, " + fullName + "!");
+            System.out.println("Admin ID: " + adminID);
+            System.out.println("--------------------------------------------------");
+            System.out.println("              ADMIN DASHBOARD");
+            System.out.println("--------------------------------------------------");
+
+            System.out.println(
+                    "Total Customers       : " + countRecords(customers)
+            );
+
+            System.out.println(
+                    "Total Staff           : " + countRecords(staff)
+            );
+
+            System.out.println(
+                    "Total Transactions    : " + countRecords(transactions)
+            );
+
+            System.out.println(
+                    "Total Activity Logs   : " + countRecords(activityLogs)
+            );
+
+            System.out.println("==================================================");
+            System.out.println("                    ADMIN MENU");
+            System.out.println("==================================================");
+            System.out.println("[1] Manage Customer Accounts");
+            System.out.println("[2] Manage Staff Accounts");
+            System.out.println("[3] View All Transactions");
+            System.out.println("[4] Manage Admin Accounts");
+            System.out.println("[5] View Activity Logs");
+            System.out.println("[6] Logout");
+            System.out.println("==================================================");
+
+            choice = readChoice(1, 6);
+
+            switch (choice) {
+
+                // MANAGE CUSTOMER ACCOUNTS
+                case 1: {
+
+                    AccountManager accountManager =
+                            new AccountManager(scanner);
+
+                    accountManager.manageCustomerAccounts();
+
+                    break;
+                }
+
+                // MANAGE STAFF ACCOUNTS
+                case 2: {
+
+                    UserAuthentication auth =
+                            new UserAuthentication(scanner);
+
+                    auth.manageStaffAccounts();
+
+                    break;
+                }
+
+                // VIEW ALL TRANSACTIONS
+                case 3:
+
+                    displayAllTransactions("ALL TRANSACTIONS");
+
+                    break;
+
+                // MANAGE ADMIN ACCOUNTS
+                case 4:
+
+                    showMessage(
+                            "MANAGE ADMIN ACCOUNTS",
+                            "Admin account management is not yet "
+                            + "implemented in the current system."
+                    );
+
+                    break;
+
+                // VIEW ACTIVITY LOGS
+                case 5:
+
+                    displayActivityLogs();
+
+                    break;
+
+                // LOGOUT
+                case 6:
+
+                    System.out.println(
+                            "\nAdmin logged out successfully."
+                    );
+
+                    break;
+            }
+
+        } while (choice != 6);
+    }
+
+    // =========================================================
+    // DISPLAY ALL TRANSACTIONS
+    // =========================================================
+
+    private void displayAllTransactions(String title) {
+
+        List<String> transactions = database.readTransactions();
+
+        System.out.println("\n==================================================");
+        System.out.println("                 " + title);
+        System.out.println("==================================================");
+
+        if (transactions == null || transactions.isEmpty()) {
+            System.out.println("No transactions found.");
+            pause();
+            return;
+        }
+
+        int count = 0;
+
+        for (String record : transactions) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            System.out.println("------------------------------------------");
+
+            if (fields.length >= 8) {
+
+                System.out.println("Transaction ID  : " + fields[0]);
+                System.out.println("Account ID      : " + fields[1]);
+                System.out.println("Transaction Type: " + fields[2]);
+                System.out.println("Amount          : PHP " + fields[3]);
+                System.out.println("Previous Balance: PHP " + fields[4]);
+                System.out.println("New Balance     : PHP " + fields[5]);
+                System.out.println("Date and Time   : " + fields[6]);
+                System.out.println("Status          : " + fields[7]);
+
+                if (fields.length >= 9) {
+                    System.out.println("Other Account   : " + fields[8]);
+                }
+
+            } else {
+                System.out.println("Transaction Record: " + record);
+            }
+
+            count++;
+        }
+
+        System.out.println("------------------------------------------");
+        System.out.println("Total Records: " + count);
+        System.out.println("==================================================");
+
+        pause();
+    }
+
+    // =========================================================
+    // DISPLAY CUSTOMER TRANSACTIONS
+    // =========================================================
+
+    private void displayCustomerTransactions(String customerID) {
+
+        List<String> transactions = database.readTransactions();
+
+        System.out.println("\n==================================================");
+        System.out.println("             TRANSACTION HISTORY");
+        System.out.println("==================================================");
+        System.out.println("Customer ID: " + customerID);
+
+        int count = 0;
+
+        if (transactions != null) {
+
+            for (String record : transactions) {
+
+                if (record == null || record.trim().isEmpty()) {
+                    continue;
+                }
+
+                String[] fields = record.split("\\|", -1);
+
+                if (fields.length < 2) {
+                    continue;
+                }
+
+                boolean belongsToCustomer =
+                        fields[1].equalsIgnoreCase(customerID);
+
+                // For transfers, also check the other account field.
+                if (fields.length >= 9
+                        && fields[8].equalsIgnoreCase(customerID)) {
+                    belongsToCustomer = true;
+                }
+
+                if (belongsToCustomer) {
+
+                    System.out.println("------------------------------------------");
+
+                    if (fields.length >= 8) {
+
+                        System.out.println("Transaction ID  : " + fields[0]);
+                        System.out.println("Transaction Type: " + fields[2]);
+                        System.out.println("Amount          : PHP " + fields[3]);
+                        System.out.println("Previous Balance: PHP " + fields[4]);
+                        System.out.println("New Balance     : PHP " + fields[5]);
+                        System.out.println("Date and Time   : " + fields[6]);
+                        System.out.println("Status          : " + fields[7]);
+
+                        if (fields.length >= 9) {
+                            System.out.println("Other Account   : " + fields[8]);
+                        }
+
+                    } else {
+                        System.out.println(record);
+                    }
+
+                    count++;
+                }
+            }
+        }
+
+        if (count == 0) {
+            System.out.println(
+                    "No transactions found for this customer."
+            );
+        }
+
+        System.out.println("------------------------------------------");
+        System.out.println("Total Transactions: " + count);
+        System.out.println("==================================================");
+
+        pause();
+    }
+
+    // =========================================================
+    // CHECK IF CUSTOMER EXISTS
+    // =========================================================
+
+    private boolean customerExists(String customerID) {
+
+        List<String> customers = database.readCustomers();
+
+        if (customers == null) {
+            return false;
+        }
+
+        for (String record : customers) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length == 7
+                    && fields[0].equalsIgnoreCase(customerID)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    // =========================================================
+    // DISPLAY ACTIVITY LOGS
+    // =========================================================
+
+    private void displayActivityLogs() {
+
+        List<String> activityLogs = database.readActivityLogs();
+
+        System.out.println("\n==================================================");
+        System.out.println("                  ACTIVITY LOGS");
+        System.out.println("==================================================");
+
+        if (activityLogs == null || activityLogs.isEmpty()) {
+            System.out.println("No activity logs found.");
+            pause();
+            return;
+        }
+
+        int count = 0;
+
+        for (String log : activityLogs) {
+
+            if (log == null || log.trim().isEmpty()) {
+                continue;
+            }
+
+            System.out.println((count + 1) + ". " + log);
+            count++;
+        }
+
+        System.out.println("--------------------------------------------------");
+        System.out.println("Total Activity Logs: " + count);
+        System.out.println("==================================================");
+
+        pause();
+    }
+
+    // =========================================================
+    // COUNT DATABASE RECORDS
+    // =========================================================
+
+    private int countRecords(List<String> records) {
+
+        int count = 0;
+
+        if (records == null) {
+            return count;
+        }
+
+        for (String record : records) {
+
+            if (record != null && !record.trim().isEmpty()) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    // =========================================================
+    // READ MENU CHOICE
+    // =========================================================
 
     private int readChoice(int min, int max) {
 
@@ -349,31 +859,41 @@ public class Dashboard {
                 }
 
                 System.out.println(
-                    "Invalid choice! Enter a number from "
-                    + min + " to " + max + "."
+                        "Invalid choice. Please enter a number from "
+                        + min + " to " + max + "."
                 );
 
             } catch (NumberFormatException e) {
+
                 System.out.println(
-                    "Invalid input! Please enter a number."
+                        "Invalid input. Please enter a valid number."
                 );
             }
         }
     }
 
-    // ==========================================
-    // TEMPORARY FEATURE MESSAGE
-    // ==========================================
+    // =========================================================
+    // DISPLAY MESSAGE
+    // =========================================================
 
     private void showMessage(String title, String message) {
 
-        System.out.println("\n--------------------------------------------------");
-        System.out.println(title.toUpperCase());
-        System.out.println("--------------------------------------------------");
+        System.out.println("\n==================================================");
+        System.out.println("               " + title);
+        System.out.println("==================================================");
         System.out.println(message);
-        System.out.println("--------------------------------------------------");
-        System.out.println("Press Enter to return to the dashboard.");
+        System.out.println("==================================================");
 
+        pause();
+    }
+
+    // =========================================================
+    // PAUSE
+    // =========================================================
+
+    private void pause() {
+
+        System.out.print("\nPress Enter to continue...");
         scanner.nextLine();
     }
 }

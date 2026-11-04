@@ -1,32 +1,41 @@
+
 package src;
 
 import java.util.Scanner;
 
 public class InterestGrowthCalculator {
 
-    public static void main(String[] args) {
-        Scanner input = new Scanner(System.in);
+    private final Scanner scanner;
+
+    public InterestGrowthCalculator(Scanner scanner) {
+        this.scanner = scanner;
+    }
+
+    public void calculateInterest() {
+
         char again;
 
-        System.out.println("=== INTEREST GROWTH CALCULATOR ===");
+        System.out.println("\n==============================================");
+        System.out.println("          INTEREST GROWTH CALCULATOR");
+        System.out.println("==============================================");
 
         do {
             double principal, rate, interest, finalSavings;
             double duration;
             String unit;
 
-            // Input and validate initial savings
+            // Input initial savings
             while (true) {
-                System.out.print("\nEnter initial savings: ");
+                System.out.print("\nEnter initial savings: PHP ");
 
-                if (input.hasNextDouble()) {
-                    principal = input.nextDouble();
+                if (scanner.hasNextDouble()) {
+                    principal = scanner.nextDouble();
 
                     if (principal > 0) {
                         break;
                     }
                 } else {
-                    input.next();
+                    scanner.next();
                 }
 
                 System.out.println(
@@ -34,18 +43,18 @@ public class InterestGrowthCalculator {
                 );
             }
 
-            // Input and validate annual interest rate
+            // Input annual interest rate
             while (true) {
                 System.out.print("Enter annual interest rate (%): ");
 
-                if (input.hasNextDouble()) {
-                    rate = input.nextDouble();
+                if (scanner.hasNextDouble()) {
+                    rate = scanner.nextDouble();
 
                     if (rate >= 0) {
                         break;
                     }
                 } else {
-                    input.next();
+                    scanner.next();
                 }
 
                 System.out.println(
@@ -53,18 +62,18 @@ public class InterestGrowthCalculator {
                 );
             }
 
-            // Input and validate duration
+            // Input duration
             while (true) {
                 System.out.print("Enter duration (number): ");
 
-                if (input.hasNextDouble()) {
-                    duration = input.nextDouble();
+                if (scanner.hasNextDouble()) {
+                    duration = scanner.nextDouble();
 
                     if (duration > 0) {
                         break;
                     }
                 } else {
-                    input.next();
+                    scanner.next();
                 }
 
                 System.out.println(
@@ -74,8 +83,8 @@ public class InterestGrowthCalculator {
 
             // Input duration unit
             while (true) {
-                System.out.print("Enter unit (month/months/year/years): ");
-                unit = input.next().toLowerCase();
+                System.out.print("Enter unit (months/years): ");
+                unit = scanner.next().toLowerCase();
 
                 if (unit.equals("month") || unit.equals("months")
                         || unit.equals("year") || unit.equals("years")) {
@@ -87,33 +96,42 @@ public class InterestGrowthCalculator {
                 );
             }
 
-            // Calculate simple interest
+            // Convert duration to years
+            double timeInYears;
+
             if (unit.equals("month") || unit.equals("months")) {
-                interest = principal * (rate / 100) * (duration / 12);
+                timeInYears = duration / 12;
             } else {
-                interest = principal * (rate / 100) * duration;
+                timeInYears = duration;
             }
+
+            // Calculate simple interest
+            interest = principal * (rate / 100) * timeInYears;
 
             // Calculate final savings
             finalSavings = principal + interest;
 
             // Display results
-            System.out.println("\n=== CALCULATION RESULTS ===");
-            System.out.printf("Initial Savings: %.2f%n", principal);
-            System.out.printf("Annual Interest Rate: %.2f%%%n", rate);
-            System.out.println("Duration: " + duration + " " + unit);
-            System.out.printf("Interest Earned: %.2f%n", interest);
-            System.out.printf("Final Savings: %.2f%n", finalSavings);
+            System.out.println("\n==============================================");
+            System.out.println("             CALCULATION RESULTS");
+            System.out.println("==============================================");
+
+            System.out.printf("Initial Savings       : PHP %.2f%n", principal);
+            System.out.printf("Annual Interest Rate  : %.2f%%%n", rate);
+            System.out.println("Duration              : " + duration + " " + unit);
+            System.out.printf("Interest Earned       : PHP %.2f%n", interest);
+            System.out.printf("Final Savings         : PHP %.2f%n", finalSavings);
+
+            System.out.println("==============================================");
 
             // Ask for another calculation
             while (true) {
-                System.out.print(
-                    "\nPerform another calculation? (Y/N): "
-                );
-                again = input.next().charAt(0);
+                System.out.print("\nPerform another calculation? (Y/N): ");
+                String choice = scanner.next().trim();
 
-                if (again == 'Y' || again == 'y'
-                        || again == 'N' || again == 'n') {
+                if (choice.equalsIgnoreCase("Y")
+                        || choice.equalsIgnoreCase("N")) {
+                    again = choice.charAt(0);
                     break;
                 }
 
@@ -122,9 +140,6 @@ public class InterestGrowthCalculator {
 
         } while (again == 'Y' || again == 'y');
 
-        System.out.println("\nThank you for using the calculator!");
-        System.out.println("END");
-
-        input.close();
+        System.out.println("\nThank you for using the Interest Growth Calculator!");
     }
 }
