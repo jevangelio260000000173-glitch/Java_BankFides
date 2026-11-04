@@ -1,3 +1,4 @@
+
 package src;
 
 import java.util.List;
@@ -32,12 +33,13 @@ public class Dashboard {
         int choice;
 
         do {
-            // Refresh customer information before displaying the dashboard.
+            // Refresh customer information before displaying dashboard.
             double[] latestData = refreshCustomerData(accountID);
 
             if (latestData != null) {
                 balance = latestData[0];
                 totalDeposits = latestData[1];
+                rewardPoints = (int) latestData[2];
             }
 
             System.out.println("\n==================================================");
@@ -66,10 +68,12 @@ public class Dashboard {
             System.out.println("[3] Interest Growth Calculator");
             System.out.println("[4] Transaction History");
             System.out.println("[5] Account Information");
-            System.out.println("[6] Logout");
+            System.out.println("[6] Report Transaction Issue");
+            System.out.println("[7] My Issue Reports");
+            System.out.println("[8] Logout");
             System.out.println("==================================================");
 
-            choice = readChoice(1, 6);
+            choice = readChoice(1, 8);
 
             switch (choice) {
 
@@ -87,7 +91,7 @@ public class Dashboard {
                         totalDeposits = result.totalDeposits;
                     }
 
-                    // Refresh the latest saved account information.
+                    // Refresh latest saved account information.
                     double[] depositData =
                             refreshCustomerData(accountID);
 
@@ -182,8 +186,30 @@ public class Dashboard {
                     break;
                 }
 
+                // REPORT TRANSACTION ISSUE
+                case 6: {
+
+                    TransactionIssueManager issueManager =
+                            new TransactionIssueManager(scanner, database);
+
+                    issueManager.reportIssue(accountID);
+
+                    break;
+                }
+
+                // VIEW MY ISSUE REPORTS
+                case 7: {
+
+                    TransactionIssueManager issueManager =
+                            new TransactionIssueManager(scanner, database);
+
+                    issueManager.viewMyIssueReports(accountID);
+
+                    break;
+                }
+
                 // LOGOUT
-                case 6:
+                case 8:
 
                     System.out.println("\n==================================================");
                     System.out.println("              LOGGING OUT");
@@ -200,7 +226,7 @@ public class Dashboard {
                     break;
             }
 
-        } while (choice != 6);
+        } while (choice != 8);
     }
 
     // =========================================================
@@ -378,8 +404,12 @@ public class Dashboard {
             List<String> customers = database.readCustomers();
             List<String> transactions = database.readTransactions();
 
-            // Get the actual number of pending deposit requests.
+            // Get actual number of pending deposit requests.
             int pendingDeposits = database.countPendingDeposits();
+
+            // Get actual number of pending transaction issue reports.
+            int pendingIssues =
+                    database.countPendingTransactionIssues();
 
             System.out.println("\n==================================================");
             System.out.println("               BANCOFIDES STAFF");
@@ -403,7 +433,7 @@ public class Dashboard {
             );
 
             System.out.println(
-                    "Reported Issues       : Not currently tracked"
+                    "Pending Issue Reports : " + pendingIssues
             );
 
             System.out.println("==================================================");
@@ -477,16 +507,16 @@ public class Dashboard {
                     break;
                 }
 
-                // REPORT TRANSACTION ISSUE
-                case 5:
+                // REVIEW TRANSACTION ISSUE REPORTS
+                case 5: {
 
-                    showMessage(
-                            "REPORT TRANSACTION ISSUE",
-                            "Transaction issue reporting is not yet "
-                            + "connected to an issue-reporting feature."
-                    );
+                    TransactionIssueManager issueManager =
+                            new TransactionIssueManager(scanner, database);
+
+                    issueManager.staffIssueMenu(staffID);
 
                     break;
+                }
 
                 // LOGOUT
                 case 6:
@@ -707,8 +737,6 @@ public class Dashboard {
                     continue;
                 }
 
-                // Each transfer has a separate record for its sender
-                // and recipient. Match only the account in field 1.
                 boolean belongsToCustomer =
                         fields[1].equalsIgnoreCase(customerID);
 

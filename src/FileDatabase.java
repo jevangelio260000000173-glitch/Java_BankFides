@@ -1,4 +1,3 @@
-
 package src;
 
 import java.io.IOException;
@@ -11,6 +10,7 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 
@@ -31,6 +31,7 @@ public class FileDatabase {
     private final Path loginSecurityFile = databaseFolder.resolve("login_security.txt");
     private final Path rewardsFile = databaseFolder.resolve("rewards.txt");
     private final Path pendingDepositsFile = databaseFolder.resolve("pending_deposits.txt");
+    private final Path transactionIssuesFile = databaseFolder.resolve("transaction_issues.txt");
 
     // ==========================================
     // LOGIN SECURITY SETTINGS
@@ -61,6 +62,7 @@ public class FileDatabase {
             createFileIfMissing(loginSecurityFile);
             createFileIfMissing(rewardsFile);
             createFileIfMissing(pendingDepositsFile);
+            createFileIfMissing(transactionIssuesFile);
 
             System.out.println("BancoFides database initialized successfully.");
             System.out.println("Database location: "
@@ -523,6 +525,349 @@ public class FileDatabase {
         }
 
         return appendLine(pendingDepositsFile, record);
+    }
+
+    // ==========================================
+    // TRANSACTION ISSUE VALIDATION
+    // ==========================================
+
+    /*
+     * transaction_issues.txt format:
+     *
+     * reportID|accountID|transactionID|issueType|description|
+     * status|submittedAt|reviewedBy|reviewedAt|staffNote
+     *
+     * Description and staffNote are Base64 encoded.
+     *
+     * Status:
+     * PENDING
+     * UNDER_REVIEW
+     * RESOLVED
+     * REJECTED
+     */
+
+    private boolean isValidBase64(String value) {
+
+        if (value == null || value.trim().isEmpty()) {
+            return false;
+        }
+
+        try {
+            Base64.getDecoder().decode(value);
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+    }
+
+    private boolean validateTransactionIssueRecord(String record) {
+
+        if (!validateRecord(record)) {
+            return false;
+        }
+
+        String[] fields = record.split("\\|", -1);
+
+        if (fields.length != 10
+                || !validateAccountID(fields[0])
+                || !validateAccountID(fields[1])
+                || !validateAccountID(fields[2])
+                || fields[3].trim().isEmpty()
+                || !isValidBase64(fields[4])
+                || fields[6].trim().isEmpty()) {
+            return false;
+        }
+
+        String status = fields[5].trim().toUpperCase();
+
+        if (!status.equals("PENDING")
+                && !status.equals("UNDER_REVIEW")
+                && !status.equals("RESOLVED")
+                && !status.equals("REJECTED")) {
+            return false;
+        }
+
+        if (status.equals("PENDING")) {
+            return fields[7].isEmpty()
+                    && fields[8].isEmpty()
+                    && fields[9].isEmpty();
+        }
+
+        return validateAccountID(fields[7])
+                && !fields[8].trim().isEmpty()
+                && (fields[9].isEmpty() || isValidBase64(fields[9]));
+    }
+
+    private boolean transactionIssueIDExists(
+            List<String> records,
+            String reportID) {
+
+        for (String record : records) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length == 10
+                    && fields[0].equalsIgnoreCase(reportID.trim())) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private int findTransactionIssueIndex(
+            List<String> records,
+            String reportID) {
+
+        int found = -1;
+
+        for (int i = 0; i < records.size(); i++) {
+
+            if (!validateTransactionIssueRecord(records.get(i))) {
+                continue;
+            }
+
+            String[] fields = records.get(i).split("\\|", -1);
+
+            if (fields[0].equalsIgnoreCase(reportID.trim())) {
+
+                if (found != -1) {
+                    return -2;
+                }
+
+                found = i;
+            }
+        }
+
+        return found;
+    }
+
+    private boolean staffAccountExists(String staffID) {
+
+        List<String> staffRecords = readFileSafely(staffFile);
+
+        if (staffRecords == null) {
+            return false;
+        }
+
+        int matches = 0;
+
+        for (String record : staffRecords) {
+
+            if (!validateStaffOrAdminRecord(record)) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields[0].equalsIgnoreCase(staffID.trim())) {
+                matches++;
+            }
+        }
+
+        return matches == 1;
+    }
+
+    // ==========================================
+    // TRANSACTION ISSUE STORAGE
+    // ==========================================
+
+    public synchronized List<String> readTransactionIssues() {
+
+        List<String> records = readFileSafely(transactionIssuesFile);
+
+        if (records == null) {
+            return new ArrayList<>();
+        }
+
+        return records;
+    }
+
+    public synchronized int countPendingTransactionIssues() {
+
+        List<String> records = readFileSafely(transactionIssuesFile);
+
+        if (records == null) {
+            return 0;
+        }
+
+        int count = 0;
+
+        for (String record : records) {
+
+            if (!validateTransactionIssueRecord(record)) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields[5].equalsIgnoreCase("PENDING")
+                    || fields[5].equalsIgnoreCase("UNDER_REVIEW")) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    public synchronized boolean saveTransactionIssue(String record) {
+
+        if (!validateTransactionIssueRecord(record)) {
+            return false;
+        }
+
+        String[] fields = record.split("\\|", -1);
+
+        if (!fields[5].equalsIgnoreCase("PENDING")) {
+            return false;
+        }
+
+        List<String> issues = readFileSafely(transactionIssuesFile);
+        List<String> transactions = readFileSafely(transactionsFile);
+        List<String> customers = readFileSafely(customersFile);
+        List<String> statuses = readFileSafely(accountStatusesFile);
+
+        if (issues == null
+                || transactions == null
+                || customers == null
+                || statuses == null) {
+            return false;
+        }
+
+        if (transactionIssueIDExists(issues, fields[0])) {
+            System.out.println("Duplicate report ID detected.");
+            return false;
+        }
+
+        if (!customerStatusIsActive(fields[1], customers, statuses)) {
+            System.out.println(
+                    "Issue report rejected: customer account is unavailable."
+            );
+            return false;
+        }
+
+        boolean transactionFound = false;
+
+        for (String transaction : transactions) {
+
+            if (!validateTransactionRecord(transaction)) {
+                continue;
+            }
+
+            String[] transactionFields = transaction.split("\\|", -1);
+
+            if (transactionFields[0].equalsIgnoreCase(fields[2])
+                    && transactionFields[1].equalsIgnoreCase(fields[1])
+                    && transactionFields[7].equalsIgnoreCase("SUCCESS")) {
+
+                transactionFound = true;
+                break;
+            }
+        }
+
+        if (!transactionFound) {
+            System.out.println(
+                    "Issue report rejected: transaction not found, "
+                    + "unsuccessful, or does not belong to this account."
+            );
+            return false;
+        }
+
+        return appendLine(transactionIssuesFile, record);
+    }
+
+    // ==========================================
+    // STAFF REVIEW OF TRANSACTION ISSUES
+    // ==========================================
+
+    public synchronized boolean updateTransactionIssue(
+            String reportID,
+            String newStatus,
+            String staffID,
+            String reviewedAt,
+            String encodedStaffNote) {
+
+        if (!validateAccountID(reportID)
+                || !validateAccountID(staffID)
+                || newStatus == null
+                || reviewedAt == null
+                || reviewedAt.trim().isEmpty()
+                || encodedStaffNote == null
+                || encodedStaffNote.contains("|")
+                || encodedStaffNote.contains("\n")
+                || encodedStaffNote.contains("\r")) {
+            return false;
+        }
+
+        String status = newStatus.trim().toUpperCase();
+
+        if (!status.equals("UNDER_REVIEW")
+                && !status.equals("RESOLVED")
+                && !status.equals("REJECTED")) {
+            return false;
+        }
+
+        if (!encodedStaffNote.isEmpty()
+                && !isValidBase64(encodedStaffNote)) {
+            return false;
+        }
+
+        if (!staffAccountExists(staffID)) {
+            System.out.println("Staff account not found.");
+            return false;
+        }
+
+        List<String> records =
+                readFileSafely(transactionIssuesFile);
+
+        if (records == null) {
+            return false;
+        }
+
+        int index = findTransactionIssueIndex(records, reportID);
+
+        if (index < 0) {
+            System.out.println(
+                    "Report was not found or its ID is duplicated."
+            );
+            return false;
+        }
+
+        String[] fields = records.get(index).split("\\|", -1);
+
+        String currentStatus = fields[5].toUpperCase();
+
+        if (currentStatus.equals("RESOLVED")
+                || currentStatus.equals("REJECTED")) {
+            System.out.println("This report has already been closed.");
+            return false;
+        }
+
+        List<String> updatedRecords = new ArrayList<>(records);
+
+        updatedRecords.set(
+                index,
+                fields[0] + "|"
+                + fields[1] + "|"
+                + fields[2] + "|"
+                + fields[3] + "|"
+                + fields[4] + "|"
+                + status + "|"
+                + fields[6] + "|"
+                + staffID.trim() + "|"
+                + reviewedAt.trim() + "|"
+                + encodedStaffNote
+        );
+
+        return writeLinesAtomically(
+                transactionIssuesFile,
+                updatedRecords,
+                "transaction_issues_temp.txt"
+        );
     }
 
     // ==========================================
@@ -2076,3 +2421,4 @@ public class FileDatabase {
         }
     }
 }
+
