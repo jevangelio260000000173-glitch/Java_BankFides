@@ -1,4 +1,3 @@
-
 package src;
 
 import java.nio.charset.StandardCharsets;
@@ -1094,6 +1093,155 @@ public class UserAuthentication {
     }
 
     // =========================================================
+    // ADMIN: CREATE ADMIN ACCOUNT
+    // =========================================================
+
+    public void createAdminAccount() {
+
+        System.out.println("\n==================================================");
+        System.out.println("               CREATE ADMIN ACCOUNT");
+        System.out.println("==================================================");
+
+        String fullName = readValidAccountField(
+                "Enter admin full name: "
+        );
+
+        if (fullName == null) {
+            return;
+        }
+
+        String username;
+
+        while (true) {
+
+            username = readValidAccountField(
+                    "Create admin username: "
+            );
+
+            if (username == null) {
+                return;
+            }
+
+            if (usernameExists(username)) {
+
+                System.out.println(
+                        "Username already exists. Please choose another.\n"
+                );
+
+            } else {
+                break;
+            }
+        }
+
+        String password;
+
+        while (true) {
+
+            password = readPassword("Create admin password: ");
+
+            if (password == null) {
+                return;
+            }
+
+            if (password.isEmpty()) {
+
+                System.out.println(
+                        "Password cannot be empty. Please try again.\n"
+                );
+
+                continue;
+            }
+
+            String confirmPassword =
+                    readPassword("Confirm admin password: ");
+
+            if (confirmPassword == null) {
+                return;
+            }
+
+            if (password.equals(confirmPassword)) {
+                break;
+            }
+
+            System.out.println(
+                    "\nPasswords do not match. Please try again.\n"
+            );
+        }
+
+        // Check again before saving the account.
+        if (usernameExists(username)) {
+
+            System.out.println(
+                    "\nUnable to create admin account. Username already exists."
+            );
+
+            return;
+        }
+
+        String hashedPassword;
+
+        try {
+
+            hashedPassword = hashPassword(password);
+
+        } catch (RuntimeException e) {
+
+            System.out.println(
+                    "\nUnable to secure the admin account password."
+            );
+
+            return;
+        }
+
+        String adminID = generateNextAdminID();
+
+        String adminRecord =
+                adminID + "|"
+                + encode(fullName) + "|"
+                + encode(username) + "|"
+                + encode(hashedPassword);
+
+        try {
+
+            if (!database.saveAdmin(adminRecord)) {
+
+                throw new RuntimeException(
+                        "Unable to save admin information."
+                );
+            }
+
+            if (!database.ensureAccountStatus(adminID)) {
+
+                throw new RuntimeException(
+                        "Unable to initialize admin account status."
+                );
+            }
+
+            System.out.println("\n==================================================");
+            System.out.println("       ADMIN ACCOUNT CREATED SUCCESSFULLY");
+            System.out.println("==================================================");
+            System.out.println("Admin ID  : " + adminID);
+            System.out.println("Full Name : " + fullName);
+            System.out.println("Username  : " + username);
+            System.out.println("Password  : [Hidden]");
+            System.out.println("Status    : ACTIVE");
+            System.out.println("==================================================");
+
+            logActivity(
+                    "ADMIN_ACCOUNT_CREATED|" + adminID
+            );
+
+        } catch (RuntimeException e) {
+
+            System.out.println(
+                    "\nUnable to create admin account."
+            );
+
+            System.out.println("Reason: " + e.getMessage());
+        }
+    }
+
+    // =========================================================
     // LOAD CUSTOMER RECORDS FROM DATABASE
     // =========================================================
 
@@ -1544,6 +1692,56 @@ public class UserAuthentication {
         }
 
         return "S" + (highestNumber + 1);
+    }
+
+    // =========================================================
+    // GENERATE NEXT ADMIN ID
+    // =========================================================
+
+    private String generateNextAdminID() {
+
+        int highestNumber = 1000;
+
+        List<String> adminRecords = database.readAdmins();
+
+        if (adminRecords == null) {
+            return "A" + (highestNumber + 1);
+        }
+
+        for (String record : adminRecords) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length < 1) {
+                continue;
+            }
+
+            String adminID = decodeIdentifier(fields[0]);
+
+            if (adminID != null && adminID.startsWith("A")) {
+
+                try {
+
+                    int number = Integer.parseInt(
+                            adminID.substring(1)
+                    );
+
+                    if (number > highestNumber) {
+                        highestNumber = number;
+                    }
+
+                } catch (NumberFormatException e) {
+
+                    // Skip IDs with an invalid format.
+                }
+            }
+        }
+
+        return "A" + (highestNumber + 1);
     }
 
     // =========================================================

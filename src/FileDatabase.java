@@ -1819,6 +1819,72 @@ public class FileDatabase {
     }
 
     // ==========================================
+    // ADMIN ACCOUNT INFORMATION UPDATE
+    // ==========================================
+
+    public synchronized boolean updateAdminAccount(
+            String accountID,
+            String updatedRecord) {
+
+        if (!validateAccountID(accountID)
+                || !validateStaffOrAdminRecord(updatedRecord)) {
+            return false;
+        }
+
+        String[] updatedFields = updatedRecord.split("\\|", -1);
+
+        // Ensure the updated record belongs to the correct Admin ID.
+        if (!updatedFields[0].equalsIgnoreCase(accountID.trim())) {
+            return false;
+        }
+
+        List<String> records = readFileSafely(adminsFile);
+
+        if (records == null) {
+            return false;
+        }
+
+        List<String> updatedRecords = new ArrayList<>();
+        boolean found = false;
+
+        for (String record : records) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length >= 1
+                    && fields[0].equalsIgnoreCase(accountID.trim())) {
+
+                // Reject duplicate or invalid Admin records.
+                if (found || fields.length != 4) {
+                    return false;
+                }
+
+                updatedRecords.add(updatedRecord);
+                found = true;
+
+            } else {
+
+                updatedRecords.add(record);
+            }
+        }
+
+        // Admin account does not exist.
+        if (!found) {
+            return false;
+        }
+
+        return writeLinesAtomically(
+                adminsFile,
+                updatedRecords,
+                "admins_temp.txt"
+        );
+    }
+
+    // ==========================================
     // ACCOUNT STATUS CHECK FOR TRANSACTIONS
     // ==========================================
 
@@ -2051,8 +2117,9 @@ public class FileDatabase {
                 || !recipientFields[2].equalsIgnoreCase("TRANSFER_IN")
                 || !senderFields[8].equalsIgnoreCase(recipientID.trim())
                 || !recipientFields[8].equalsIgnoreCase(senderID.trim())
-                || !sameMoney(senderFields[3], recipientFields[3])
-                || !sameMoney(senderFields[6], recipientFields[6])) {
+                || !sameMoney(senderFields[3], recipientFields[3])) {
+
+            System.out.println("Transfer rejected: transaction information does not match.");
             return false;
         }
 
@@ -2421,4 +2488,3 @@ public class FileDatabase {
         }
     }
 }
-

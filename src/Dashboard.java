@@ -1,4 +1,3 @@
-
 package src;
 
 import java.util.List;
@@ -33,7 +32,6 @@ public class Dashboard {
         int choice;
 
         do {
-            // Refresh customer information before displaying dashboard.
             double[] latestData = refreshCustomerData(accountID);
 
             if (latestData != null) {
@@ -77,7 +75,6 @@ public class Dashboard {
 
             switch (choice) {
 
-                // CASH IN / DEPOSIT
                 case 1: {
 
                     DepositManager depositManager =
@@ -91,7 +88,6 @@ public class Dashboard {
                         totalDeposits = result.totalDeposits;
                     }
 
-                    // Refresh latest saved account information.
                     double[] depositData =
                             refreshCustomerData(accountID);
 
@@ -103,7 +99,6 @@ public class Dashboard {
                     break;
                 }
 
-                // TRANSACTIONS
                 case 2: {
 
                     TransactionHistory transactionHistory =
@@ -133,7 +128,6 @@ public class Dashboard {
                             break;
                     }
 
-                    // Refresh after withdrawal or transfer.
                     double[] transactionData =
                             refreshCustomerData(accountID);
 
@@ -145,7 +139,6 @@ public class Dashboard {
                     break;
                 }
 
-                // INTEREST GROWTH CALCULATOR
                 case 3: {
 
                     InterestGrowthCalculator calculator =
@@ -155,7 +148,6 @@ public class Dashboard {
                     break;
                 }
 
-                // TRANSACTION HISTORY
                 case 4: {
 
                     TransactionHistory historyManager =
@@ -165,7 +157,6 @@ public class Dashboard {
                     break;
                 }
 
-                // ACCOUNT INFORMATION
                 case 5: {
 
                     accountInformationMenu(
@@ -174,7 +165,6 @@ public class Dashboard {
                             username
                     );
 
-                    // Refresh after returning from Account Information.
                     double[] accountData =
                             refreshCustomerData(accountID);
 
@@ -186,29 +176,24 @@ public class Dashboard {
                     break;
                 }
 
-                // REPORT TRANSACTION ISSUE
                 case 6: {
 
                     TransactionIssueManager issueManager =
                             new TransactionIssueManager(scanner, database);
 
                     issueManager.reportIssue(accountID);
-
                     break;
                 }
 
-                // VIEW MY ISSUE REPORTS
                 case 7: {
 
                     TransactionIssueManager issueManager =
                             new TransactionIssueManager(scanner, database);
 
                     issueManager.viewMyIssueReports(accountID);
-
                     break;
                 }
 
-                // LOGOUT
                 case 8:
 
                     System.out.println("\n==================================================");
@@ -253,7 +238,6 @@ public class Dashboard {
 
             switch (choice) {
 
-                // VIEW ACCOUNT INFORMATION
                 case 1: {
 
                     double[] latestData =
@@ -272,18 +256,15 @@ public class Dashboard {
                     break;
                 }
 
-                // SAVE-TO-EARN REWARDS
                 case 2: {
 
                     RewardsManager rewardsManager =
                             new RewardsManager(scanner, database);
 
                     rewardsManager.open(accountID);
-
                     break;
                 }
 
-                // RETURN TO DASHBOARD
                 case 3:
 
                     System.out.println(
@@ -404,10 +385,8 @@ public class Dashboard {
             List<String> customers = database.readCustomers();
             List<String> transactions = database.readTransactions();
 
-            // Get actual number of pending deposit requests.
             int pendingDeposits = database.countPendingDeposits();
 
-            // Get actual number of pending transaction issue reports.
             int pendingIssues =
                     database.countPendingTransactionIssues();
 
@@ -451,36 +430,29 @@ public class Dashboard {
 
             switch (choice) {
 
-                // SEARCH CUSTOMER ACCOUNT
                 case 1: {
 
                     AccountManager accountManager =
-                            new AccountManager(scanner);
+                            new AccountManager(scanner, database);
 
                     accountManager.staffCustomerAccountSearch();
-
                     break;
                 }
 
-                // REVIEW TRANSACTIONS
                 case 2:
 
                     displayAllTransactions("REVIEW TRANSACTIONS");
-
                     break;
 
-                // VERIFY PENDING DEPOSITS
                 case 3: {
 
                     PendingDepositManager pendingDepositManager =
                             new PendingDepositManager(scanner, database);
 
                     pendingDepositManager.staffMenu(staffID);
-
                     break;
                 }
 
-                // VIEW CUSTOMER TRANSACTION HISTORY
                 case 4: {
 
                     System.out.println("\n==================================================");
@@ -503,22 +475,18 @@ public class Dashboard {
                     }
 
                     displayCustomerTransactions(customerID);
-
                     break;
                 }
 
-                // REVIEW TRANSACTION ISSUE REPORTS
                 case 5: {
 
                     TransactionIssueManager issueManager =
                             new TransactionIssueManager(scanner, database);
 
                     issueManager.staffIssueMenu(staffID);
-
                     break;
                 }
 
-                // LOGOUT
                 case 6:
 
                     System.out.println(
@@ -593,10 +561,9 @@ public class Dashboard {
                 case 1: {
 
                     AccountManager accountManager =
-                            new AccountManager(scanner);
+                            new AccountManager(scanner, database);
 
                     accountManager.manageCustomerAccounts();
-
                     break;
                 }
 
@@ -604,10 +571,9 @@ public class Dashboard {
                 case 2: {
 
                     UserAuthentication auth =
-                            new UserAuthentication(scanner);
+                            new UserAuthentication(scanner, database);
 
                     auth.manageStaffAccounts();
-
                     break;
                 }
 
@@ -615,25 +581,22 @@ public class Dashboard {
                 case 3:
 
                     displayAllTransactions("ALL TRANSACTIONS");
-
                     break;
 
                 // MANAGE ADMIN ACCOUNTS
-                case 4:
+                case 4: {
 
-                    showMessage(
-                            "MANAGE ADMIN ACCOUNTS",
-                            "Admin account management is not yet "
-                            + "implemented in the current system."
-                    );
+                    AccountManager accountManager =
+                            new AccountManager(scanner, database);
 
+                    accountManager.manageAdminAccounts();
                     break;
+                }
 
                 // VIEW ACTIVITY LOGS
                 case 5:
 
                     displayActivityLogs();
-
                     break;
 
                 // LOGOUT
@@ -899,21 +862,6 @@ public class Dashboard {
                 );
             }
         }
-    }
-
-    // =========================================================
-    // DISPLAY MESSAGE
-    // =========================================================
-
-    private void showMessage(String title, String message) {
-
-        System.out.println("\n==================================================");
-        System.out.println("               " + title);
-        System.out.println("==================================================");
-        System.out.println(message);
-        System.out.println("==================================================");
-
-        pause();
     }
 
     // =========================================================
