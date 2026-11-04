@@ -1,4 +1,3 @@
-
 package src;
 
 import java.util.List;
@@ -10,8 +9,12 @@ public class Dashboard {
     private final FileDatabase database;
 
     public Dashboard(Scanner scanner) {
+        this(scanner, new FileDatabase());
+    }
+
+    public Dashboard(Scanner scanner, FileDatabase database) {
         this.scanner = scanner;
-        this.database = new FileDatabase();
+        this.database = database;
     }
 
     // =========================================================
@@ -35,7 +38,6 @@ public class Dashboard {
             if (latestData != null) {
                 balance = latestData[0];
                 totalDeposits = latestData[1];
-                rewardPoints = (int) latestData[2];
             }
 
             System.out.println("\n==================================================");
@@ -45,9 +47,17 @@ public class Dashboard {
             System.out.println("Account ID        : " + accountID);
             System.out.println("Username          : " + username);
             System.out.println("--------------------------------------------------");
-            System.out.printf("Available Balance : PHP %,.2f%n", balance);
-            System.out.printf("Total Deposits     : PHP %,.2f%n", totalDeposits);
-            System.out.println("Reward Points      : " + rewardPoints);
+
+            System.out.printf(
+                    "Available Balance : PHP %,.2f%n",
+                    balance
+            );
+
+            System.out.printf(
+                    "Total Deposits    : PHP %,.2f%n",
+                    totalDeposits
+            );
+
             System.out.println("==================================================");
             System.out.println("                  CUSTOMER MENU");
             System.out.println("==================================================");
@@ -67,7 +77,7 @@ public class Dashboard {
                 case 1: {
 
                     DepositManager depositManager =
-                            new DepositManager(scanner);
+                            new DepositManager(scanner, database);
 
                     DepositManager.DepositResult result =
                             depositManager.deposit(accountID);
@@ -75,17 +85,15 @@ public class Dashboard {
                     if (result != null) {
                         balance = result.balance;
                         totalDeposits = result.totalDeposits;
-                        rewardPoints = result.rewardPoints;
                     }
 
-                    // Read the latest saved account information.
+                    // Refresh the latest saved account information.
                     double[] depositData =
                             refreshCustomerData(accountID);
 
                     if (depositData != null) {
                         balance = depositData[0];
                         totalDeposits = depositData[1];
-                        rewardPoints = (int) depositData[2];
                     }
 
                     break;
@@ -128,7 +136,6 @@ public class Dashboard {
                     if (transactionData != null) {
                         balance = transactionData[0];
                         totalDeposits = transactionData[1];
-                        rewardPoints = (int) transactionData[2];
                     }
 
                     break;
@@ -170,7 +177,6 @@ public class Dashboard {
                     if (accountData != null) {
                         balance = accountData[0];
                         totalDeposits = accountData[1];
-                        rewardPoints = (int) accountData[2];
                     }
 
                     break;
@@ -233,8 +239,7 @@ public class Dashboard {
                                 accountID,
                                 username,
                                 latestData[0],
-                                latestData[1],
-                                (int) latestData[2]
+                                latestData[1]
                         );
                     }
 
@@ -328,8 +333,7 @@ public class Dashboard {
             String accountID,
             String username,
             double balance,
-            double totalDeposits,
-            int rewardPoints) {
+            double totalDeposits) {
 
         System.out.println("\n==================================================");
         System.out.println("               ACCOUNT INFORMATION");
@@ -344,13 +348,12 @@ public class Dashboard {
         );
 
         System.out.printf(
-                "Total Deposits     : PHP %,.2f%n",
+                "Total Deposits    : PHP %,.2f%n",
                 totalDeposits
         );
 
-        System.out.println("Reward Points      : " + rewardPoints);
         System.out.println(
-                "Account Status     : "
+                "Account Status    : "
                 + database.getAccountStatus(accountID)
         );
 
@@ -375,6 +378,9 @@ public class Dashboard {
             List<String> customers = database.readCustomers();
             List<String> transactions = database.readTransactions();
 
+            // Get the actual number of pending deposit requests.
+            int pendingDeposits = database.countPendingDeposits();
+
             System.out.println("\n==================================================");
             System.out.println("               BANCOFIDES STAFF");
             System.out.println("==================================================");
@@ -393,7 +399,7 @@ public class Dashboard {
             );
 
             System.out.println(
-                    "Pending Deposits      : Not currently tracked"
+                    "Pending Deposits      : " + pendingDeposits
             );
 
             System.out.println(
@@ -434,16 +440,15 @@ public class Dashboard {
                     break;
 
                 // VERIFY PENDING DEPOSITS
-                case 3:
+                case 3: {
 
-                    showMessage(
-                            "VERIFY PENDING DEPOSITS",
-                            "Your current deposit system processes deposits "
-                            + "immediately. Pending deposit verification "
-                            + "is not yet implemented."
-                    );
+                    PendingDepositManager pendingDepositManager =
+                            new PendingDepositManager(scanner, database);
+
+                    pendingDepositManager.staffMenu(staffID);
 
                     break;
+                }
 
                 // VIEW CUSTOMER TRANSACTION HISTORY
                 case 4: {
@@ -702,14 +707,10 @@ public class Dashboard {
                     continue;
                 }
 
+                // Each transfer has a separate record for its sender
+                // and recipient. Match only the account in field 1.
                 boolean belongsToCustomer =
                         fields[1].equalsIgnoreCase(customerID);
-
-                // For transfers, also check the other account field.
-                if (fields.length >= 9
-                        && fields[8].equalsIgnoreCase(customerID)) {
-                    belongsToCustomer = true;
-                }
 
                 if (belongsToCustomer) {
 

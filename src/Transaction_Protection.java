@@ -1,369 +1,313 @@
+
 package src;
-import java.util.Scanner;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 public class Transaction_Protection {
 
-    static Scanner sc = new Scanner(System.in);
+    private final FileDatabase database;
 
-    // Sample account data
-    static int[] accountIds = {1001, 1002, 1003};
-    static String[] usernames = {"ana", "ben", "staff"};
-    static String[] passwords = {"ana123", "ben123", "staff123"};
-    static String[] roles = {"USER", "USER", "STAFF"};
-    static double[] balances = {5000.00, 3000.00, 1500.00};
-    static boolean[] active = {true, true, true};
+    private static final DateTimeFormatter DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // Login protection
-    static int[] failedLogins = new int[accountIds.length];
-    static boolean[] locked = new boolean[accountIds.length];
-    static final int MAX_LOGIN_ATTEMPTS = 3;
+    public Transaction_Protection() {
+        this.database = new FileDatabase();
+    }
 
-    // Basic transaction records
-    static String[] logs = new String[500];
-    static int logCount = 0;
+    public Transaction_Protection(FileDatabase database) {
+        this.database = database;
+    }
 
-    static String[] transactionKeys = new String[500];
-    static int keyCount = 0;
+    // ==========================================
+    // ROLE-BASED PERMISSION VALIDATION
+    // ==========================================
 
-    static int transactionId = 1;
+    public boolean hasPermission(String role, String transactionType) {
 
-    public static void main(String[] args) {
+        if (role == null || transactionType == null) {
+            return false;
+        }
 
-        System.out.println("=== BANCOFIDES TRANSACTION PROTECTION ===");
+        String normalizedRole = role.trim().toUpperCase();
+        String normalizedType = transactionType.trim().toUpperCase();
 
-        while (true) {
-            int user = login();
+        // Customers can perform their own transactions.
+        if (normalizedRole.equals("CUSTOMER")
+                || normalizedRole.equals("USER")) {
 
-            if (user == -1) {
-                System.out.println("Program closed.");
-                break;
-            }
+            return normalizedType.equals("DEPOSIT")
+                    || normalizedType.equals("WITHDRAWAL")
+                    || normalizedType.equals("TRANSFER");
+        }
 
-            if (user == -2) {
+        // Staff and Admin do not directly perform customer transactions
+        // through the customer transaction menu.
+        return false;
+    }
+
+    // ==========================================
+    // CUSTOMER ACCOUNT VALIDATION
+    // ==========================================
+
+    public boolean isValidCustomerAccount(String accountID) {
+
+        if (accountID == null || accountID.trim().isEmpty()) {
+            return false;
+        }
+
+        List<String> customers = database.readCustomers();
+
+        for (String record : customers) {
+
+            if (record == null || record.trim().isEmpty()) {
                 continue;
             }
 
-            int choice;
+            String[] fields = record.split("\\|", -1);
 
-            do {
-                System.out.println("\n1. Deposit");
-                System.out.println("2. Withdraw");
-                System.out.println("3. Transfer");
-                System.out.println("4. View Balance");
-                System.out.println("5. Logout");
-                System.out.print("Choose: ");
-
-                choice = readInt();
-
-                switch (choice) {
-                    case 1:
-                        transact(user, "DEPOSIT");
-                        break;
-                    case 2:
-                        transact(user, "WITHDRAWAL");
-                        break;
-                    case 3:
-                        transact(user, "TRANSFER");
-                        break;
-                    case 4:
-                        System.out.printf("Balance: PHP %.2f%n",
-                                balances[user]);
-                        break;
-                    case 5:
-                        System.out.println("Logged out.");
-                        break;
-                    default:
-                        System.out.println("Invalid choice.");
-                }
-
-            } while (choice != 5);
-        }
-
-        sc.close();
-    }
-
-    // LOGIN AND TEMPORARY LOCKING
-    static int login() {
-
-        System.out.print("\nUsername (or EXIT): ");
-        String username = sc.nextLine().trim();
-
-        if (username.equalsIgnoreCase("EXIT")) {
-            return -1;
-        }
-
-        int user = findUsername(username);
-
-        if (user == -1) {
-            System.out.println("Invalid username or password.");
-            log("Failed login: unknown username.");
-            return -2;
-        }
-
-        if (locked[user]) {
-            System.out.println(
-                "Account temporarily locked. Contact staff or admin."
-            );
-            log("Blocked login for account " + accountIds[user]);
-            return -2;
-        }
-
-        System.out.print("Password: ");
-        String password = sc.nextLine();
-
-        if (!passwords[user].equals(password)) {
-            failedLogins[user]++;
-
-            System.out.println("Invalid username or password.");
-            log("Failed login for account " + accountIds[user]);
-
-            if (failedLogins[user] >= MAX_LOGIN_ATTEMPTS) {
-                locked[user] = true;
-                System.out.println("Account temporarily locked.");
-                log("Account locked: " + accountIds[user]);
-            } else {
-                System.out.println("Attempts remaining: "
-                        + (MAX_LOGIN_ATTEMPTS - failedLogins[user]));
-            }
-
-            return -2;
-        }
-
-        failedLogins[user] = 0;
-
-        if (!active[user]) {
-            System.out.println("Account is inactive.");
-            log("Login denied for inactive account "
-                    + accountIds[user]);
-            return -2;
-        }
-
-        System.out.println("Welcome! Role: " + roles[user]);
-        log("Successful login: account " + accountIds[user]);
-
-        return user;
-    }
-
-    // TRANSACTION VALIDATION AND PROCESSING
-    static void transact(int user, String type) {
-
-        // Permission check
-        if (!hasPermission(user, type)) {
-            System.out.println(
-                "You are not authorized to perform this action."
-            );
-            log("Unauthorized " + type + " attempt.");
-            return;
-        }
-
-        int source = user;
-        int recipient = -1;
-
-        // Verify source account exists and is active
-        if (source < 0 || source >= accountIds.length
-                || !active[source]) {
-            System.out.println("Account not found or inactive.");
-            log("Rejected transaction: invalid source account.");
-            return;
-        }
-
-        // Transfer recipient validation
-        if (type.equals("TRANSFER")) {
-            System.out.print("Recipient account ID: ");
-            int recipientId = readInt();
-
-            recipient = findAccount(recipientId);
-
-            if (recipient == -1 || !active[recipient]) {
-                System.out.println(
-                    "Recipient account not found or inactive."
-                );
-                log("Rejected transfer: invalid recipient.");
-                return;
-            }
-
-            if (recipient == source) {
-                System.out.println(
-                    "Cannot transfer to the same account."
-                );
-                log("Rejected transfer: same source and recipient.");
-                return;
-            }
-        }
-
-        System.out.print("Amount: PHP ");
-        double amount = readDouble();
-
-        // Reject zero or negative amounts
-        if (amount <= 0) {
-            System.out.println(
-                "Invalid amount. Must be greater than zero."
-            );
-            log("Rejected " + type + ": invalid amount.");
-            return;
-        }
-
-        // Sufficient balance check
-        if ((type.equals("WITHDRAWAL") || type.equals("TRANSFER"))
-                && amount > balances[source]) {
-            System.out.println("Insufficient balance.");
-            log("Rejected " + type + ": insufficient balance.");
-            return;
-        }
-
-        // Detect duplicate transaction in current session
-        String key = type + "|" + accountIds[source] + "|"
-                + (recipient == -1 ? 0 : accountIds[recipient])
-                + "|" + String.format("%.2f", amount);
-
-        if (isDuplicate(key)) {
-            System.out.println("Duplicate transaction detected.");
-            log("Rejected duplicate transaction.");
-            return;
-        }
-
-        // Confirmation
-        System.out.println("\n--- CONFIRM TRANSACTION ---");
-        System.out.println("Type: " + type);
-        System.out.println("Source account: " + accountIds[source]);
-
-        if (recipient != -1) {
-            System.out.println("Recipient account: "
-                    + accountIds[recipient]);
-        }
-
-        System.out.printf("Amount: PHP %.2f%n", amount);
-        System.out.print("Confirm? (Y/N): ");
-
-        String confirm = sc.nextLine().trim();
-
-        if (!confirm.equalsIgnoreCase("Y")) {
-            System.out.println("Transaction cancelled.");
-            log("Cancelled " + type + " transaction.");
-            return;
-        }
-
-        // Recheck balance immediately before processing
-        if ((type.equals("WITHDRAWAL") || type.equals("TRANSFER"))
-                && amount > balances[source]) {
-            System.out.println("Insufficient balance.");
-            log("Rejected transaction during final balance check.");
-            return;
-        }
-
-        // Process the transaction
-        if (type.equals("DEPOSIT")) {
-            balances[source] += amount;
-        } else if (type.equals("WITHDRAWAL")) {
-            balances[source] -= amount;
-        } else if (type.equals("TRANSFER")) {
-            balances[source] -= amount;
-            balances[recipient] += amount;
-        }
-
-        saveKey(key);
-
-        System.out.println("Transaction successful!");
-        System.out.println("Transaction ID: " + transactionId);
-        transactionId++;
-
-        System.out.printf("Updated balance: PHP %.2f%n",
-                balances[source]);
-
-        log("Successful " + type + " transaction for account "
-                + accountIds[source] + ", amount PHP "
-                + String.format("%.2f", amount));
-    }
-
-    // ROLE-BASED PERMISSIONS
-    static boolean hasPermission(int user, String type) {
-
-        if (roles[user].equals("USER")) {
-            return type.equals("DEPOSIT")
-                    || type.equals("WITHDRAWAL")
-                    || type.equals("TRANSFER");
-        }
-
-        if (roles[user].equals("STAFF")) {
-            return type.equals("DEPOSIT");
-        }
-
-        return false;
-    }
-
-    // ACCOUNT SEARCH
-    static int findUsername(String username) {
-        for (int i = 0; i < usernames.length; i++) {
-            if (usernames[i].equals(username)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    static int findAccount(int id) {
-        for (int i = 0; i < accountIds.length; i++) {
-            if (accountIds[i] == id) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    // DUPLICATE CHECK
-    static boolean isDuplicate(String key) {
-        for (int i = 0; i < keyCount; i++) {
-            if (transactionKeys[i].equals(key)) {
+            if (fields.length == 7
+                    && fields[0].equalsIgnoreCase(accountID.trim())) {
                 return true;
             }
         }
+
         return false;
     }
 
-    static void saveKey(String key) {
-        if (keyCount < transactionKeys.length) {
-            transactionKeys[keyCount] = key;
-            keyCount++;
+    // ==========================================
+    // ACCOUNT STATUS VALIDATION
+    // ==========================================
+
+    public boolean isAccountActive(String accountID) {
+
+        if (!isValidCustomerAccount(accountID)) {
+            logSecurityEvent(
+                    accountID,
+                    "Rejected operation: account does not exist."
+            );
+
+            return false;
         }
+
+        String status = database.getAccountStatus(accountID);
+
+        if (!status.equalsIgnoreCase("ACTIVE")) {
+
+            logSecurityEvent(
+                    accountID,
+                    "Rejected operation: inactive account."
+            );
+
+            return false;
+        }
+
+        return true;
     }
 
-    // BASIC LOGGING
-    static void log(String message) {
-        if (logCount < logs.length) {
-            logs[logCount] = message;
-            logCount++;
-        }
-    }
+    // ==========================================
+    // TRANSACTION VALIDATION
+    // ==========================================
 
-    // INPUT VALIDATION
-    static int readInt() {
-        while (true) {
-            try {
-                return Integer.parseInt(sc.nextLine().trim());
-            } catch (NumberFormatException e) {
-                System.out.print("Enter a valid whole number: ");
-            }
-        }
-    }
+    /*
+     * Validates a customer's deposit, withdrawal, or transfer
+     * before the transaction manager processes it.
+     *
+     * recipientID is required only for transfers.
+     */
 
-    static double readDouble() {
-        while (true) {
-            try {
-                double amount = Double.parseDouble(
-                    sc.nextLine().trim()
+    public boolean validateTransaction(
+            String accountID,
+            String transactionType,
+            BigDecimal amount,
+            String recipientID) {
+
+        if (accountID == null
+                || transactionType == null
+                || amount == null) {
+
+            logSecurityEvent(
+                    accountID,
+                    "Rejected transaction: missing transaction information."
+            );
+
+            return false;
+        }
+
+        String type = transactionType.trim().toUpperCase();
+
+        // Check supported transaction type.
+        if (!type.equals("DEPOSIT")
+                && !type.equals("WITHDRAWAL")
+                && !type.equals("TRANSFER")) {
+
+            logSecurityEvent(
+                    accountID,
+                    "Rejected transaction: unsupported transaction type."
+            );
+
+            return false;
+        }
+
+        // Check amount.
+        if (amount.compareTo(BigDecimal.ZERO) <= 0
+                || amount.scale() > 2) {
+
+            logSecurityEvent(
+                    accountID,
+                    "Rejected " + type + ": invalid transaction amount."
+            );
+
+            return false;
+        }
+
+        // Check source account.
+        if (!isAccountActive(accountID)) {
+            return false;
+        }
+
+        // Check current customer balance.
+        BigDecimal currentBalance = getCustomerBalance(accountID);
+
+        if (currentBalance == null) {
+            logSecurityEvent(
+                    accountID,
+                    "Rejected " + type + ": unable to verify account balance."
+            );
+
+            return false;
+        }
+
+        // Withdrawal and transfer require sufficient balance.
+        if (type.equals("WITHDRAWAL")
+                || type.equals("TRANSFER")) {
+
+            if (amount.compareTo(currentBalance) > 0) {
+
+                logSecurityEvent(
+                        accountID,
+                        "Rejected " + type + ": insufficient balance."
                 );
 
-                if (Double.isNaN(amount)
-                        || Double.isInfinite(amount)) {
-                    System.out.print("Enter a valid amount: ");
-                    continue;
-                }
-
-                return amount;
-
-            } catch (NumberFormatException e) {
-                System.out.print("Enter a valid amount: ");
+                return false;
             }
+        }
+
+        // Validate recipient for transfers.
+        if (type.equals("TRANSFER")) {
+
+            if (recipientID == null
+                    || recipientID.trim().isEmpty()) {
+
+                logSecurityEvent(
+                        accountID,
+                        "Rejected transfer: missing recipient account."
+                );
+
+                return false;
+            }
+
+            if (accountID.equalsIgnoreCase(recipientID.trim())) {
+
+                logSecurityEvent(
+                        accountID,
+                        "Rejected transfer: same source and recipient account."
+                );
+
+                return false;
+            }
+
+            if (!isAccountActive(recipientID)) {
+
+                logSecurityEvent(
+                        accountID,
+                        "Rejected transfer: recipient account is invalid or inactive."
+                );
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    // ==========================================
+    // GET CUSTOMER BALANCE
+    // ==========================================
+
+    public BigDecimal getCustomerBalance(String accountID) {
+
+        if (accountID == null || accountID.trim().isEmpty()) {
+            return null;
+        }
+
+        List<String> customers = database.readCustomers();
+
+        for (String record : customers) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length == 7
+                    && fields[0].equalsIgnoreCase(accountID.trim())) {
+
+                try {
+
+                    BigDecimal balance = new BigDecimal(fields[4]);
+
+                    if (balance.compareTo(BigDecimal.ZERO) < 0) {
+                        return null;
+                    }
+
+                    return balance;
+
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    // ==========================================
+    // SECURITY ACTIVITY LOGGING
+    // ==========================================
+
+    public void logSecurityEvent(
+            String accountID,
+            String description) {
+
+        String safeAccountID =
+                accountID == null || accountID.trim().isEmpty()
+                ? "UNKNOWN"
+                : accountID.trim();
+
+        String safeDescription =
+                description == null
+                ? "Unspecified security event."
+                : description.replace("|", "/")
+                        .replace("\n", " ")
+                        .replace("\r", " ");
+
+        String dateTime = LocalDateTime.now().format(DATE_FORMAT);
+
+        String activityRecord =
+                dateTime
+                + "|" + safeAccountID
+                + "|SECURITY"
+                + "|" + safeDescription;
+
+        if (!database.saveActivityLog(activityRecord)) {
+
+            System.out.println(
+                    "Warning: Security event could not be saved."
+            );
         }
     }
 }

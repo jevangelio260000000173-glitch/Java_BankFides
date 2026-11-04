@@ -14,24 +14,39 @@ public class DepositManager {
 
     private final Scanner scanner;
     private final FileDatabase database;
+    private final Transaction_Protection security;
+
+    private static final DateTimeFormatter DATE_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     // ==========================================
-    // REWARD SETTINGS
+    // CONSTRUCTORS
     // ==========================================
-
-    private static final double MINIMUM_REWARD_DEPOSIT = 100.00;
-    private static final int POINTS_PER_100 = 1;
 
     public DepositManager(Scanner scanner) {
-        this.scanner = scanner;
-        this.database = new FileDatabase();
+        this(scanner, new FileDatabase());
     }
 
-    // =========================================================
+    public DepositManager(Scanner scanner, FileDatabase database) {
+        this.scanner = scanner;
+        this.database = database;
+        this.security = new Transaction_Protection(database);
+    }
+
+    // ==========================================
     // DEPOSIT / CASH IN
-    // =========================================================
+    // ==========================================
 
     public DepositResult deposit(String accountID) {
+
+        // STEP 1: VERIFY ACCOUNT
+
+        if (!security.isAccountActive(accountID)) {
+            showFailure(
+                    "Customer account does not exist or is inactive."
+            );
+            return null;
+        }
 
         String customerRecord = findCustomerRecord(accountID);
 
@@ -48,120 +63,170 @@ public class DepositManager {
         }
 
         String fullName;
-        double balance;
-        double totalDeposits;
+        BigDecimal balance;
+        BigDecimal totalDeposits;
         int rewardPoints;
 
         try {
-
             fullName = decode(fields[1]);
-            balance = Double.parseDouble(fields[4]);
-            totalDeposits = Double.parseDouble(fields[5]);
+
+            balance = new BigDecimal(fields[4])
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            totalDeposits = new BigDecimal(fields[5])
+                    .setScale(2, RoundingMode.HALF_UP);
+
             rewardPoints = Integer.parseInt(fields[6]);
 
-        } catch (Exception e) {
+            if (balance.compareTo(BigDecimal.ZERO) < 0
+                    || totalDeposits.compareTo(BigDecimal.ZERO) < 0
+                    || rewardPoints < 0) {
+                throw new NumberFormatException();
+            }
 
+        } catch (NumberFormatException e) {
             showFailure("Unable to read the customer account details.");
             return null;
         }
 
-        // ==========================================
         // DISPLAY ACCOUNT INFORMATION
-        // ==========================================
 
         System.out.println("\n==========================================");
         System.out.println("              CASH IN / DEPOSIT");
         System.out.println("==========================================");
         System.out.println("Account Name    : " + fullName);
         System.out.println("Account ID      : " + accountID);
-        System.out.printf("Current Balance : PHP %,.2f%n", balance);
 
-        // ==========================================
-        // STEP 1: ENTER DEPOSIT AMOUNT
-        // ==========================================
+        System.out.printf(
+                "Current Balance : PHP %,.2f%n",
+                balance
+        );
 
-        double amount;
+        // STEP 2: ENTER DEPOSIT AMOUNT
+
+        BigDecimal amount;
 
         while (true) {
 
             System.out.print("\nEnter deposit amount: PHP ");
+
             String input = scanner.nextLine().trim();
 
             try {
+                amount = new BigDecimal(input);
 
-                BigDecimal enteredAmount = new BigDecimal(input);
-
-                if (enteredAmount.compareTo(BigDecimal.ZERO) <= 0) {
-
+                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
                     System.out.println(
                             "Invalid amount. Deposit must be greater than zero."
                     );
-
                     continue;
                 }
 
-                enteredAmount = enteredAmount.setScale(
-                        2,
-                        RoundingMode.HALF_UP
-                );
-
-                amount = enteredAmount.doubleValue();
-
-                if (!Double.isFinite(amount)
-                        || amount <= 0
-                        || !Double.isFinite(balance + amount)) {
-
+                if (amount.scale() > 2) {
                     System.out.println(
-                            "Invalid amount. Please enter a valid deposit amount."
+                            "Invalid amount. Please enter up to two decimal places."
                     );
-
                     continue;
+                }
+
+                amount = amount.setScale(2, RoundingMode.UNNECESSARY);
+
+                if (!Double.isFinite(amount.doubleValue())) {
+                    System.out.println(
+                            "Invalid amount. The deposit exceeds the supported limit."
+                    );
+                    continue;
+                }
+
+                if (!security.validateTransaction(
+                        accountID,
+                        "DEPOSIT",
+                        amount,
+                        null)) {
+
+                    showFailure(
+                            "The deposit failed the transaction security checks."
+                    );
+                    return null;
                 }
 
                 break;
 
-            } catch (NumberFormatException e) {
-
+            } catch (NumberFormatException | ArithmeticException e) {
                 System.out.println(
-                        "Invalid input. Please enter a valid amount."
+                        "Invalid input. Please enter a valid deposit amount."
                 );
             }
         }
 
-        double newBalance = balance + amount;
-        double newTotalDeposits = totalDeposits + amount;
+        // STEP 3: CHECK EXPECTED BALANCE
 
-        // ==========================================
-        // STEP 2: DEPOSIT CONFIRMATION
-        // ==========================================
+        BigDecimal expectedBalance = balance.add(amount);
+        BigDecimal expectedTotalDeposits = totalDeposits.add(amount);
+
+        if (!Double.isFinite(expectedBalance.doubleValue())
+                || !Double.isFinite(expectedTotalDeposits.doubleValue())) {
+
+            showFailure(
+                    "The deposit amount exceeds the supported account limit."
+            );
+            return null;
+        }
+
+        // STEP 4: DEPOSIT REQUEST CONFIRMATION
 
         System.out.println("\n==========================================");
-        System.out.println("              DEPOSIT DETAILS");
+        System.out.println("             DEPOSIT REQUEST");
         System.out.println("==========================================");
         System.out.println("Account Name    : " + fullName);
         System.out.println("Account ID      : " + accountID);
-        System.out.printf("Current Balance : PHP %,.2f%n", balance);
-        System.out.printf("Deposit Amount  : PHP %,.2f%n", amount);
-        System.out.printf("New Balance     : PHP %,.2f%n", newBalance);
+
+        System.out.printf(
+                "Current Balance : PHP %,.2f%n",
+                balance
+        );
+
+        System.out.printf(
+                "Deposit Amount  : PHP %,.2f%n",
+                amount
+        );
+
+        System.out.printf(
+                "Balance After Approval: PHP %,.2f%n",
+                expectedBalance
+        );
+
+        System.out.println("------------------------------------------");
+        System.out.println("Important:");
+        System.out.println("Your balance will NOT change immediately.");
+        System.out.println("The deposit must first be reviewed by staff.");
         System.out.println("==========================================");
-        System.out.println("[1] Confirm Deposit");
-        System.out.println("[2] Cancel Deposit");
+        System.out.println("[1] Submit Deposit Request");
+        System.out.println("[2] Cancel Request");
         System.out.println("==========================================");
 
         int choice = readChoice(1, 2);
 
         if (choice == 2) {
-
-            System.out.println("\nDeposit cancelled.");
-            System.out.println("Your balance has not changed.");
-
+            System.out.println("\nDeposit request cancelled.");
+            System.out.println("No changes were made to your account.");
             pause();
             return null;
         }
 
-        // ==========================================
-        // STEP 3: VERIFY CUSTOMER ACCOUNT AGAIN
-        // ==========================================
+        // STEP 5: VERIFY ACCOUNT AGAIN
+
+        if (!security.validateTransaction(
+                accountID,
+                "DEPOSIT",
+                amount,
+                null)) {
+
+            showFailure(
+                    "The account could not pass the final security verification."
+            );
+            return null;
+        }
 
         customerRecord = findCustomerRecord(accountID);
 
@@ -178,195 +243,155 @@ public class DepositManager {
         }
 
         try {
-
             fullName = decode(fields[1]);
-            balance = Double.parseDouble(fields[4]);
-            totalDeposits = Double.parseDouble(fields[5]);
+
+            balance = new BigDecimal(fields[4])
+                    .setScale(2, RoundingMode.HALF_UP);
+
+            totalDeposits = new BigDecimal(fields[5])
+                    .setScale(2, RoundingMode.HALF_UP);
+
             rewardPoints = Integer.parseInt(fields[6]);
 
-        } catch (Exception e) {
+            if (balance.compareTo(BigDecimal.ZERO) < 0
+                    || totalDeposits.compareTo(BigDecimal.ZERO) < 0
+                    || rewardPoints < 0) {
+                throw new NumberFormatException();
+            }
 
-            showFailure("Unable to verify the current account information.");
+        } catch (NumberFormatException e) {
+            showFailure(
+                    "Unable to verify the current account information."
+            );
             return null;
         }
 
-        // Recalculate using the latest account information.
-        newBalance = balance + amount;
-        newTotalDeposits = totalDeposits + amount;
+        // Recheck supported account limits.
 
-        if (!Double.isFinite(newBalance)
-                || !Double.isFinite(newTotalDeposits)) {
+        expectedBalance = balance.add(amount);
+        expectedTotalDeposits = totalDeposits.add(amount);
+
+        if (!Double.isFinite(expectedBalance.doubleValue())
+                || !Double.isFinite(expectedTotalDeposits.doubleValue())) {
 
             showFailure(
                     "The deposit amount exceeds the supported account limit."
             );
-
             return null;
         }
 
-        // ==========================================
-        // STEP 4: CALCULATE REWARD POINTS
-        // ==========================================
+        // STEP 6: GENERATE PENDING DEPOSIT ID
 
-        int earnedPoints = calculateRewardPoints(amount);
+        String pendingID = generatePendingDepositID();
 
-        int newRewardPoints;
-
-        try {
-
-            newRewardPoints = Math.addExact(
-                    rewardPoints,
-                    earnedPoints
+        if (pendingID == null) {
+            showFailure(
+                    "Unable to generate a deposit request ID."
             );
-
-        } catch (ArithmeticException e) {
-
-            showFailure("The reward point limit has been reached.");
             return null;
         }
 
-        // ==========================================
-        // STEP 5: GENERATE TRANSACTION AND REWARD IDs
-        // ==========================================
+        // STEP 7: PREPARE PENDING DEPOSIT RECORD
 
-        String transactionID = generateTransactionID();
-        String rewardID = generateRewardID();
-
-        // ==========================================
-        // STEP 6: PREPARE UPDATED CUSTOMER RECORD
-        // ==========================================
-
-        String updatedCustomerRecord =
-                fields[0] + "|"
-                + fields[1] + "|"
-                + fields[2] + "|"
-                + fields[3] + "|"
-                + newBalance + "|"
-                + newTotalDeposits + "|"
-                + newRewardPoints;
-
-        String dateTime = LocalDateTime.now().format(
-                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
-        );
-
-        // ==========================================
-        // STEP 7: PREPARE TRANSACTION RECORD
-        // ==========================================
-
-        String transactionRecord =
-                transactionID + "|"
-                + accountID + "|"
-                + "DEPOSIT" + "|"
-                + amount + "|"
-                + balance + "|"
-                + newBalance + "|"
-                + dateTime + "|"
-                + "SUCCESS";
-
-        // ==========================================
-        // STEP 8: PREPARE REWARD RECORD
-        // ==========================================
+        String dateTime = LocalDateTime.now().format(DATE_FORMAT);
 
         /*
-         * rewards.txt format:
+         * pending_deposits.txt format:
          *
-         * rewardID|accountID|transactionID|
-         * depositAmount|pointsEarned|dateTime
+         * pendingID|accountID|amount|submittedAt|
+         * status|reviewedBy|reviewedAt
+         *
+         * Example:
+         * P1001|C1001|1000.00|2026-11-04 18:30:00|PENDING||
+         *
+         * The last two fields remain empty until
+         * a staff member reviews the request.
          */
 
-        String rewardRecord =
-                rewardID + "|"
+        String pendingDepositRecord =
+                pendingID + "|"
                 + accountID + "|"
-                + transactionID + "|"
-                + amount + "|"
-                + earnedPoints + "|"
-                + dateTime;
+                + amount.toPlainString() + "|"
+                + dateTime + "|"
+                + "PENDING||";
 
-        // ==========================================
-        // STEP 9: SAVE DEPOSIT AND REWARD RECORD
-        // ==========================================
+        // STEP 8: SAVE PENDING DEPOSIT REQUEST
 
         try {
 
-            boolean depositSaved = database.processDeposit(
-                    accountID,
-                    updatedCustomerRecord,
-                    transactionRecord,
-                    rewardRecord
-            );
+            boolean requestSaved =
+                    database.savePendingDeposit(pendingDepositRecord);
 
-            if (!depositSaved) {
-
+            if (!requestSaved) {
                 showFailure(
-                        "Unable to save the deposit, transaction, and reward records."
+                        "Unable to save your deposit request. "
+                        + "Please try again."
                 );
-
                 return null;
             }
 
-            // Save activity log after successful deposit.
+            // Save activity log after successful submission.
+
             boolean activitySaved = database.saveActivityLog(
-                    "DEPOSIT_SUCCESS|"
-                    + accountID + "|"
-                    + transactionID
+                    dateTime
+                    + "|" + accountID
+                    + "|DEPOSIT_REQUEST_SUBMITTED"
+                    + "|" + pendingID
             );
 
             if (!activitySaved) {
-
                 System.out.println(
                         "\nWarning: Activity log could not be saved."
                 );
             }
 
-            // ==========================================
-            // STEP 10: DISPLAY DEPOSIT RECEIPT
-            // ==========================================
+            // STEP 9: DISPLAY SUBMISSION CONFIRMATION
 
             System.out.println("\n==========================================");
-            System.out.println("             DEPOSIT SUCCESSFUL!");
+            System.out.println("       DEPOSIT REQUEST SUBMITTED!");
             System.out.println("==========================================");
             System.out.println("Account Name    : " + fullName);
             System.out.println("Account ID      : " + accountID);
-            System.out.printf("Previous Balance: PHP %,.2f%n", balance);
-            System.out.printf("Deposit Amount  : PHP %,.2f%n", amount);
-            System.out.printf("New Balance     : PHP %,.2f%n", newBalance);
+
+            System.out.printf(
+                    "Current Balance : PHP %,.2f%n",
+                    balance
+            );
+
+            System.out.printf(
+                    "Requested Amount: PHP %,.2f%n",
+                    amount
+            );
+
             System.out.println("------------------------------------------");
-            System.out.println("Transaction ID  : " + transactionID);
-            System.out.println("Transaction Type: DEPOSIT");
-            System.out.println("Status          : SUCCESSFUL");
+            System.out.println("Request ID      : " + pendingID);
+            System.out.println("Request Type    : DEPOSIT");
+            System.out.println("Status          : PENDING");
+            System.out.println("Submitted At    : " + dateTime);
             System.out.println("------------------------------------------");
-            System.out.println("Reward ID       : " + rewardID);
-            System.out.println("Reward Points   : +" + earnedPoints);
-            System.out.println("Total Points    : " + newRewardPoints);
-            System.out.println("Date and Time   : " + dateTime);
+
+            System.out.println("Your deposit request has been recorded.");
+            System.out.println("Please wait for staff approval.");
+            System.out.println();
+            System.out.println("Your account balance has NOT been updated.");
+            System.out.println("Reward points will only be credited");
+            System.out.println("after the deposit is approved.");
             System.out.println("==========================================");
-            System.out.println("Your deposit has been recorded.");
-
-            if (earnedPoints > 0) {
-
-                System.out.println(
-                        "Congratulations! You earned reward points."
-                );
-
-            } else {
-
-                System.out.println(
-                        "This deposit did not qualify for reward points."
-                );
-            }
 
             pause();
 
+            // Return unchanged account values.
             return new DepositResult(
-                    newBalance,
-                    newTotalDeposits,
-                    newRewardPoints
+                    balance.doubleValue(),
+                    totalDeposits.doubleValue(),
+                    rewardPoints
             );
 
         } catch (RuntimeException e) {
 
             showFailure(
-                    "Unable to process the deposit. Please check your database files."
+                    "Unable to submit the deposit request. "
+                    + "Please check your database files."
             );
 
             System.out.println("Reason: " + e.getMessage());
@@ -375,11 +400,15 @@ public class DepositManager {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // FIND CUSTOMER RECORD
-    // =========================================================
+    // ==========================================
 
     private String findCustomerRecord(String accountID) {
+
+        if (accountID == null || accountID.trim().isEmpty()) {
+            return null;
+        }
 
         List<String> records = database.readCustomers();
 
@@ -392,8 +421,7 @@ public class DepositManager {
             String[] fields = record.split("\\|", -1);
 
             if (fields.length == 7
-                    && fields[0].equalsIgnoreCase(accountID)) {
-
+                    && fields[0].equalsIgnoreCase(accountID.trim())) {
                 return record;
             }
         }
@@ -401,28 +429,15 @@ public class DepositManager {
         return null;
     }
 
-    // =========================================================
-    // REWARD POINT CALCULATION
-    // =========================================================
+    // ==========================================
+    // GENERATE UNIQUE PENDING DEPOSIT ID
+    // ==========================================
 
-    private int calculateRewardPoints(double amount) {
-
-        if (amount < MINIMUM_REWARD_DEPOSIT) {
-            return 0;
-        }
-
-        return (int) (amount / 100.00) * POINTS_PER_100;
-    }
-
-    // =========================================================
-    // GENERATE UNIQUE TRANSACTION ID
-    // =========================================================
-
-    private String generateTransactionID() {
+    private String generatePendingDepositID() {
 
         int highestNumber = 1000;
 
-        for (String record : database.readTransactions()) {
+        for (String record : database.readPendingDeposits()) {
 
             if (record == null || record.trim().isEmpty()) {
                 continue;
@@ -430,10 +445,9 @@ public class DepositManager {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length > 0 && fields[0].startsWith("T")) {
+            if (fields.length > 0 && fields[0].startsWith("P")) {
 
                 try {
-
                     int number = Integer.parseInt(
                             fields[0].substring(1)
                     );
@@ -443,59 +457,25 @@ public class DepositManager {
                     }
 
                 } catch (NumberFormatException e) {
-                    // Skip invalid transaction IDs.
+                    // Skip invalid pending deposit IDs.
                 }
             }
         }
 
-        return "T" + (highestNumber + 1);
-    }
-
-    // =========================================================
-    // GENERATE UNIQUE REWARD ID
-    // =========================================================
-
-    private String generateRewardID() {
-
-        int highestNumber = 1000;
-
-        for (String record : database.readRewards()) {
-
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
-
-            String[] fields = record.split("\\|", -1);
-
-            if (fields.length > 0 && fields[0].startsWith("R")) {
-
-                try {
-
-                    int number = Integer.parseInt(
-                            fields[0].substring(1)
-                    );
-
-                    if (number > highestNumber) {
-                        highestNumber = number;
-                    }
-
-                } catch (NumberFormatException e) {
-                    // Skip invalid reward IDs.
-                }
-            }
+        if (highestNumber == Integer.MAX_VALUE) {
+            return null;
         }
 
-        return "R" + (highestNumber + 1);
+        return "P" + (highestNumber + 1);
     }
 
-    // =========================================================
+    // ==========================================
     // BASE64 DECODING
-    // =========================================================
+    // ==========================================
 
     private String decode(String value) {
 
         try {
-
             byte[] decoded = Base64.getDecoder().decode(value);
 
             return new String(
@@ -504,14 +484,13 @@ public class DepositManager {
             );
 
         } catch (IllegalArgumentException e) {
-
             return value;
         }
     }
 
-    // =========================================================
+    // ==========================================
     // INPUT VALIDATION
-    // =========================================================
+    // ==========================================
 
     private int readChoice(int min, int max) {
 
@@ -522,7 +501,6 @@ public class DepositManager {
             String input = scanner.nextLine().trim();
 
             try {
-
                 int choice = Integer.parseInt(input);
 
                 if (choice >= min && choice <= max) {
@@ -535,7 +513,6 @@ public class DepositManager {
                 );
 
             } catch (NumberFormatException e) {
-
                 System.out.println(
                         "Please enter a valid number."
                 );
@@ -543,9 +520,9 @@ public class DepositManager {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // FAILURE MESSAGE
-    // =========================================================
+    // ==========================================
 
     private void showFailure(String message) {
 
@@ -559,9 +536,9 @@ public class DepositManager {
         pause();
     }
 
-    // =========================================================
+    // ==========================================
     // PAUSE
-    // =========================================================
+    // ==========================================
 
     private void pause() {
 
@@ -572,9 +549,9 @@ public class DepositManager {
         scanner.nextLine();
     }
 
-    // =========================================================
+    // ==========================================
     // DEPOSIT RESULT
-    // =========================================================
+    // ==========================================
 
     public static class DepositResult {
 

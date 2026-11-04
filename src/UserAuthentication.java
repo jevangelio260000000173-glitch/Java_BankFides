@@ -2,10 +2,15 @@
 package src;
 
 import java.nio.charset.StandardCharsets;
+import java.security.GeneralSecurityException;
+import java.security.MessageDigest;
+import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Scanner;
+import javax.crypto.SecretKeyFactory;
+import javax.crypto.spec.PBEKeySpec;
 
 public class UserAuthentication {
 
@@ -20,14 +25,26 @@ public class UserAuthentication {
 
     private static final int MAX_LOGIN_ATTEMPTS = 3;
 
+    // Password hashing settings
+    private static final String HASH_PREFIX = "PBKDF2";
+    private static final int HASH_ITERATIONS = 120000;
+    private static final int HASH_KEY_LENGTH = 256;
+    private static final int SALT_LENGTH = 16;
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     // =========================================================
-    // CONSTRUCTOR
+    // CONSTRUCTORS
     // =========================================================
 
     public UserAuthentication(Scanner scanner) {
+        this(scanner, new FileDatabase());
+    }
+
+    public UserAuthentication(Scanner scanner, FileDatabase database) {
 
         this.scanner = scanner;
-        this.database = new FileDatabase();
+        this.database = database;
 
         loadCustomers();
         createDefaultAdmin();
@@ -75,15 +92,23 @@ public class UserAuthentication {
 
         while (true) {
 
-            password = readValidAccountField("Create password: ");
+            password = readPassword("Create password: ");
 
             if (password == null) {
                 return;
             }
 
-            String confirmPassword = readValidAccountField(
-                    "Confirm password: "
-            );
+            if (password.isEmpty()) {
+
+                System.out.println(
+                        "Password cannot be empty. Please try again.\n"
+                );
+
+                continue;
+            }
+
+            String confirmPassword =
+                    readPassword("Confirm password: ");
 
             if (confirmPassword == null) {
                 return;
@@ -105,6 +130,7 @@ public class UserAuthentication {
         System.out.println("Username        : " + username);
         System.out.println("Account Type    : Customer");
         System.out.println("Initial Balance : PHP 0.00");
+        System.out.println("Password        : [Hidden]");
         System.out.println("==================================================");
         System.out.println("[1] Confirm and Create Account");
         System.out.println("[2] Cancel Registration");
@@ -120,44 +146,62 @@ public class UserAuthentication {
             return;
         }
 
+        if (usernameExists(username)) {
+
+            System.out.println(
+                    "\nRegistration failed. The username is already in use."
+            );
+
+            return;
+        }
+
         String accountID = generateNextCustomerID();
 
         double balance = 0.0;
         double totalDeposits = 0.0;
         int rewardPoints = 0;
 
+        String hashedPassword;
+
+        try {
+
+            hashedPassword = hashPassword(password);
+
+        } catch (RuntimeException e) {
+
+            System.out.println(
+                    "\nRegistration failed. Unable to secure the password."
+            );
+
+            return;
+        }
+
         String customerRecord =
                 accountID + "|"
                 + encode(fullName) + "|"
                 + encode(username) + "|"
-                + encode(password) + "|"
+                + encode(hashedPassword) + "|"
                 + balance + "|"
                 + totalDeposits + "|"
                 + rewardPoints;
 
         try {
 
-            if (!database.saveCustomer(customerRecord)) {
-                throw new RuntimeException(
-                        "Unable to save customer information."
-                );
-            }
-
             if (!database.ensureAccountStatus(accountID)) {
+
                 throw new RuntimeException(
                         "Unable to initialize account status."
                 );
             }
 
-            customers.add(new Customer(
-                    accountID,
-                    fullName,
-                    username,
-                    password,
-                    balance,
-                    totalDeposits,
-                    rewardPoints
-            ));
+            if (!database.saveCustomer(customerRecord)) {
+
+                throw new RuntimeException(
+                        "Unable to save customer information."
+                );
+            }
+
+            loadCustomers();
 
             logActivity("CUSTOMER_REGISTERED|" + accountID);
 
@@ -168,6 +212,7 @@ public class UserAuthentication {
             System.out.println("Full Name   : " + fullName);
             System.out.println("Username    : " + username);
             System.out.println("Balance     : PHP 0.00");
+            System.out.println("Password    : [Hidden]");
             System.out.println("Status      : ACTIVE");
             System.out.println("==================================================");
 
@@ -213,7 +258,7 @@ public class UserAuthentication {
                 return;
             }
 
-            String password = readValidAccountField("Enter password: ");
+            String password = readPassword("Enter password: ");
 
             if (password == null) {
                 return;
@@ -334,7 +379,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // CHECK IF ACCOUNT IS TEMPORARILY LOCKED
+            // CHECK TEMPORARY ACCOUNT LOCKOUT
             // -------------------------------------------------
 
             if (database.isLoginLocked(accountID)) {
@@ -353,10 +398,32 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // CHECK PASSWORD
+            // VERIFY PASSWORD
             // -------------------------------------------------
 
-            if (!storedPassword.equals(password)) {
+            boolean passwordCorrect;
+
+            try {
+
+                passwordCorrect = verifyPassword(
+                        password,
+                        storedPassword
+                );
+
+            } catch (RuntimeException e) {
+
+                System.out.println(
+                        "\nUnable to verify the account password."
+                );
+
+                logActivity(
+                        "LOGIN_FAILED_PASSWORD_VERIFICATION|" + accountID
+                );
+
+                return;
+            }
+
+            if (!passwordCorrect) {
 
                 int attempts = database.recordFailedLogin(accountID);
 
@@ -382,6 +449,7 @@ public class UserAuthentication {
                 } else if (attempts >= MAX_LOGIN_ATTEMPTS) {
 
                     System.out.println("\nACCOUNT TEMPORARILY LOCKED!");
+
                     System.out.println(
                             "You have reached the maximum of "
                             + MAX_LOGIN_ATTEMPTS + " failed attempts."
@@ -417,7 +485,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // CORRECT PASSWORD: RESET FAILED ATTEMPTS
+            // RESET FAILED LOGIN ATTEMPTS
             // -------------------------------------------------
 
             if (!database.resetLoginAttempts(accountID)) {
@@ -438,7 +506,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // CHECK ACCOUNT STATUS
+            // VERIFY ACCOUNT STATUS
             // -------------------------------------------------
 
             if (!canLogin(accountID)) {
@@ -446,7 +514,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // SUCCESSFUL CUSTOMER LOGIN
+            // CUSTOMER LOGIN
             // -------------------------------------------------
 
             if ("CUSTOMER".equals(accountRole)) {
@@ -459,13 +527,18 @@ public class UserAuthentication {
                 customer = findCustomer(username);
 
                 if (customer == null) {
+
                     System.out.println(
                             "Unable to load customer account information."
                     );
+
                     return;
                 }
 
-                Dashboard dashboard = new Dashboard(scanner);
+                Dashboard dashboard = new Dashboard(
+                        scanner,
+                        database
+                );
 
                 dashboard.customerDashboard(
                         customer.fullName,
@@ -480,7 +553,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // SUCCESSFUL STAFF LOGIN
+            // STAFF LOGIN
             // -------------------------------------------------
 
             if ("STAFF".equals(accountRole)) {
@@ -490,7 +563,10 @@ public class UserAuthentication {
 
                 logActivity("STAFF_LOGIN|" + accountID);
 
-                Dashboard dashboard = new Dashboard(scanner);
+                Dashboard dashboard = new Dashboard(
+                        scanner,
+                        database
+                );
 
                 dashboard.staffDashboard(
                         accountID,
@@ -501,7 +577,7 @@ public class UserAuthentication {
             }
 
             // -------------------------------------------------
-            // SUCCESSFUL ADMIN LOGIN
+            // ADMIN LOGIN
             // -------------------------------------------------
 
             if ("ADMIN".equals(accountRole)) {
@@ -511,7 +587,10 @@ public class UserAuthentication {
 
                 logActivity("ADMIN_LOGIN|" + accountID);
 
-                Dashboard dashboard = new Dashboard(scanner);
+                Dashboard dashboard = new Dashboard(
+                        scanner,
+                        database
+                );
 
                 dashboard.adminDashboard(
                         accountID,
@@ -521,6 +600,152 @@ public class UserAuthentication {
                 return;
             }
         }
+    }
+
+    // =========================================================
+    // PASSWORD INPUT
+    // =========================================================
+
+    private String readPassword(String prompt) {
+
+        java.io.Console console = System.console();
+
+        // Hide password input when running in a supported terminal.
+        if (console != null) {
+
+            char[] password = console.readPassword("%s", prompt);
+
+            if (password == null) {
+                return null;
+            }
+
+            try {
+
+                return new String(password);
+
+            } finally {
+
+                java.util.Arrays.fill(password, '\0');
+            }
+        }
+
+        // Fallback for NetBeans Output window.
+        // Scanner keeps the application compatible with the IDE.
+        System.out.print(prompt);
+
+        if (!scanner.hasNextLine()) {
+            return null;
+        }
+
+        return scanner.nextLine();
+    }
+
+    // =========================================================
+    // PASSWORD HASHING
+    // =========================================================
+
+    private String hashPassword(String password) {
+
+        byte[] salt = new byte[SALT_LENGTH];
+        SECURE_RANDOM.nextBytes(salt);
+
+        byte[] hash = generatePasswordHash(
+                password,
+                salt,
+                HASH_ITERATIONS
+        );
+
+        return HASH_PREFIX + "$"
+                + HASH_ITERATIONS + "$"
+                + Base64.getEncoder().encodeToString(salt) + "$"
+                + Base64.getEncoder().encodeToString(hash);
+    }
+
+    private byte[] generatePasswordHash(
+            String password,
+            byte[] salt,
+            int iterations
+    ) {
+
+        PBEKeySpec spec = new PBEKeySpec(
+                password.toCharArray(),
+                salt,
+                iterations,
+                HASH_KEY_LENGTH
+        );
+
+        try {
+
+            SecretKeyFactory factory =
+                    SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256");
+
+            return factory.generateSecret(spec).getEncoded();
+
+        } catch (GeneralSecurityException e) {
+
+            throw new IllegalStateException(
+                    "Password hashing is unavailable.",
+                    e
+            );
+
+        } finally {
+
+            spec.clearPassword();
+        }
+    }
+
+    private boolean verifyPassword(
+            String enteredPassword,
+            String storedPassword
+    ) {
+
+        if (enteredPassword == null || storedPassword == null) {
+            return false;
+        }
+
+        // Verify new PBKDF2 passwords.
+        if (storedPassword.startsWith(HASH_PREFIX + "$")) {
+
+            String[] parts = storedPassword.split("\\$", -1);
+
+            if (parts.length != 4) {
+                return false;
+            }
+
+            try {
+
+                int iterations = Integer.parseInt(parts[1]);
+
+                if (iterations < 1 || iterations > 1000000) {
+                    return false;
+                }
+
+                byte[] salt = Base64.getDecoder().decode(parts[2]);
+                byte[] storedHash = Base64.getDecoder().decode(parts[3]);
+
+                if (salt.length == 0 || storedHash.length == 0) {
+                    return false;
+                }
+
+                byte[] enteredHash = generatePasswordHash(
+                        enteredPassword,
+                        salt,
+                        iterations
+                );
+
+                return MessageDigest.isEqual(
+                        storedHash,
+                        enteredHash
+                );
+
+            } catch (IllegalArgumentException e) {
+
+                return false;
+            }
+        }
+
+        // Backward compatibility with older plaintext password records.
+        return storedPassword.equals(enteredPassword);
     }
 
     // =========================================================
@@ -553,11 +778,13 @@ public class UserAuthentication {
         System.out.println("Account ID       : " + accountID);
         System.out.println("Maximum Attempts : " + MAX_LOGIN_ATTEMPTS);
         System.out.println("Reason           : Too many incorrect passwords.");
+
         System.out.printf(
                 "Time Remaining   : %02d:%02d%n",
                 minutes,
                 seconds
         );
+
         System.out.println("==================================================");
     }
 
@@ -698,17 +925,23 @@ public class UserAuthentication {
 
         while (true) {
 
-            password = readValidAccountField(
-                    "Create staff password: "
-            );
+            password = readPassword("Create staff password: ");
 
             if (password == null) {
                 return;
             }
 
-            String confirmPassword = readValidAccountField(
-                    "Confirm staff password: "
-            );
+            if (password.isEmpty()) {
+
+                System.out.println(
+                        "Password cannot be empty. Please try again.\n"
+                );
+
+                continue;
+            }
+
+            String confirmPassword =
+                    readPassword("Confirm staff password: ");
 
             if (confirmPassword == null) {
                 return;
@@ -723,25 +956,51 @@ public class UserAuthentication {
             );
         }
 
+        if (usernameExists(username)) {
+
+            System.out.println(
+                    "\nUnable to create staff account. Username already exists."
+            );
+
+            return;
+        }
+
+        String hashedPassword;
+
+        try {
+
+            hashedPassword = hashPassword(password);
+
+        } catch (RuntimeException e) {
+
+            System.out.println(
+                    "\nUnable to secure the staff account password."
+            );
+
+            return;
+        }
+
         String staffID = generateNextStaffID();
 
         String staffRecord =
                 staffID + "|"
                 + encode(fullName) + "|"
                 + encode(username) + "|"
-                + encode(password);
+                + encode(hashedPassword);
 
         try {
 
-            if (!database.saveStaff(staffRecord)) {
+            if (!database.ensureAccountStatus(staffID)) {
+
                 throw new RuntimeException(
-                        "Unable to save staff information."
+                        "Unable to initialize staff account status."
                 );
             }
 
-            if (!database.ensureAccountStatus(staffID)) {
+            if (!database.saveStaff(staffRecord)) {
+
                 throw new RuntimeException(
-                        "Unable to initialize staff account status."
+                        "Unable to save staff information."
                 );
             }
 
@@ -870,13 +1129,19 @@ public class UserAuthentication {
                 String accountID = fields[0];
                 String fullName = decode(fields[1]);
                 String username = decode(fields[2]);
-                String password = decode(fields[3]);
+                String storedPassword = decode(fields[3]);
 
                 double balance = Double.parseDouble(fields[4]);
                 double totalDeposits = Double.parseDouble(fields[5]);
                 int rewardPoints = Integer.parseInt(fields[6]);
 
-                if (balance < 0
+                if (accountID.trim().isEmpty()
+                        || fullName.trim().isEmpty()
+                        || username.trim().isEmpty()
+                        || storedPassword.trim().isEmpty()
+                        || !Double.isFinite(balance)
+                        || !Double.isFinite(totalDeposits)
+                        || balance < 0
                         || totalDeposits < 0
                         || rewardPoints < 0) {
 
@@ -889,7 +1154,7 @@ public class UserAuthentication {
                         accountID,
                         fullName,
                         username,
-                        password,
+                        storedPassword,
                         balance,
                         totalDeposits,
                         rewardPoints
@@ -922,30 +1187,81 @@ public class UserAuthentication {
 
                 String[] fields = record.split("\\|", -1);
 
-                if (fields.length == 4) {
-                    return;
+                if (fields.length != 4) {
+                    continue;
+                }
+
+                try {
+
+                    String adminID = decodeIdentifier(fields[0]);
+                    String fullName = decode(fields[1]);
+                    String username = decode(fields[2]);
+                    String storedPassword = decode(fields[3]);
+
+                    if (adminID != null
+                            && !adminID.trim().isEmpty()
+                            && fullName != null
+                            && !fullName.trim().isEmpty()
+                            && username != null
+                            && !username.trim().isEmpty()
+                            && storedPassword != null
+                            && !storedPassword.trim().isEmpty()) {
+
+                        return;
+                    }
+
+                } catch (IllegalArgumentException e) {
+
+                    // Skip invalid administrator records.
                 }
             }
+        }
+
+        String hashedPassword;
+
+        try {
+
+            hashedPassword = hashPassword(DEFAULT_ADMIN_PASSWORD);
+
+        } catch (RuntimeException e) {
+
+            System.out.println(
+                    "Warning: Unable to secure the default admin password."
+            );
+
+            return;
         }
 
         String adminRecord =
                 DEFAULT_ADMIN_ID + "|"
                 + encode(DEFAULT_ADMIN_NAME) + "|"
                 + encode(DEFAULT_ADMIN_USERNAME) + "|"
-                + encode(DEFAULT_ADMIN_PASSWORD);
+                + encode(hashedPassword);
 
         try {
 
             if (!database.saveAdmin(adminRecord)) {
+
                 System.out.println(
                         "Warning: Unable to save the default admin account."
                 );
+
+                return;
+            }
+
+            if (!database.ensureAccountStatus(DEFAULT_ADMIN_ID)) {
+
+                System.out.println(
+                        "Warning: Unable to initialize default admin status."
+                );
+
                 return;
             }
 
             System.out.println("\nDefault administrator account created.");
             System.out.println("Username: " + DEFAULT_ADMIN_USERNAME);
-            System.out.println("Password: " + DEFAULT_ADMIN_PASSWORD);
+            System.out.println("Password: [Hidden]");
+
             System.out.println(
                     "Change the default credentials before using "
                     + "the system beyond testing."
@@ -965,61 +1281,79 @@ public class UserAuthentication {
 
     private void initializeAccountStatuses() {
 
-        for (String record : database.readCustomers()) {
+        List<String> customerRecords = database.readCustomers();
 
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
+        if (customerRecords != null) {
 
-            String[] fields = record.split("\\|", -1);
+            for (String record : customerRecords) {
 
-            if (fields.length == 7) {
+                if (record == null || record.trim().isEmpty()) {
+                    continue;
+                }
 
-                if (!database.ensureAccountStatus(fields[0])) {
-                    System.out.println(
-                            "Warning: Unable to initialize status for "
-                            + fields[0]
-                    );
+                String[] fields = record.split("\\|", -1);
+
+                if (fields.length == 7) {
+
+                    if (!database.ensureAccountStatus(fields[0])) {
+
+                        System.out.println(
+                                "Warning: Unable to initialize status for "
+                                + fields[0]
+                        );
+                    }
                 }
             }
         }
 
-        for (String record : database.readStaff()) {
+        List<String> staffRecords = database.readStaff();
 
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
+        if (staffRecords != null) {
 
-            String[] fields = record.split("\\|", -1);
+            for (String record : staffRecords) {
 
-            if (fields.length == 4) {
+                if (record == null || record.trim().isEmpty()) {
+                    continue;
+                }
 
-                if (!database.ensureAccountStatus(fields[0])) {
-                    System.out.println(
-                            "Warning: Unable to initialize status for "
-                            + fields[0]
-                    );
+                String[] fields = record.split("\\|", -1);
+
+                if (fields.length == 4) {
+
+                    if (!database.ensureAccountStatus(fields[0])) {
+
+                        System.out.println(
+                                "Warning: Unable to initialize status for "
+                                + fields[0]
+                        );
+                    }
                 }
             }
         }
 
-        for (String record : database.readAdmins()) {
+        List<String> adminRecords = database.readAdmins();
 
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
+        if (adminRecords != null) {
 
-            String[] fields = record.split("\\|", -1);
+            for (String record : adminRecords) {
 
-            if (fields.length == 4) {
+                if (record == null || record.trim().isEmpty()) {
+                    continue;
+                }
 
-                String adminID = decodeIdentifier(fields[0]);
+                String[] fields = record.split("\\|", -1);
 
-                if (!database.ensureAccountStatus(adminID)) {
-                    System.out.println(
-                            "Warning: Unable to initialize status for "
-                            + adminID
-                    );
+                if (fields.length == 4) {
+
+                    String adminID = decodeIdentifier(fields[0]);
+
+                    if (!database.ensureAccountStatus(adminID)) {
+
+                        System.out.println(
+                                "Warning: Unable to initialize status for "
+                                + adminID
+                        );
+                    }
                 }
             }
         }
@@ -1104,6 +1438,7 @@ public class UserAuthentication {
                 }
 
             } catch (IllegalArgumentException e) {
+
                 // Skip unreadable records.
             }
         }
@@ -1119,7 +1454,13 @@ public class UserAuthentication {
 
         int highestNumber = 1000;
 
-        for (String record : database.readCustomers()) {
+        List<String> records = database.readCustomers();
+
+        if (records == null) {
+            return "C" + (highestNumber + 1);
+        }
+
+        for (String record : records) {
 
             if (record == null || record.trim().isEmpty()) {
                 continue;
@@ -1146,6 +1487,7 @@ public class UserAuthentication {
                     }
 
                 } catch (NumberFormatException e) {
+
                     // Skip IDs with an invalid format.
                 }
             }
@@ -1165,7 +1507,7 @@ public class UserAuthentication {
         List<String> staffRecords = database.readStaff();
 
         if (staffRecords == null) {
-            return "S1001";
+            return "S" + (highestNumber + 1);
         }
 
         for (String record : staffRecords) {
@@ -1195,6 +1537,7 @@ public class UserAuthentication {
                     }
 
                 } catch (NumberFormatException e) {
+
                     // Skip IDs with an invalid format.
                 }
             }
@@ -1244,6 +1587,7 @@ public class UserAuthentication {
             }
 
         } catch (IllegalArgumentException e) {
+
             // The ID may already be stored as plain text.
         }
 
@@ -1290,34 +1634,6 @@ public class UserAuthentication {
 
             return input;
         }
-    }
-
-    private String readRequiredInput(String prompt) {
-
-        System.out.print(prompt);
-
-        if (!scanner.hasNextLine()) {
-            System.out.println("\nNo input received.");
-            return null;
-        }
-
-        String input = scanner.nextLine().trim();
-
-        if (input.isEmpty()) {
-            System.out.println("Input cannot be empty.");
-            return null;
-        }
-
-        return input;
-    }
-
-    private boolean isValidAccountField(String value) {
-
-        return value != null
-                && !value.trim().isEmpty()
-                && !value.contains("|")
-                && !value.contains("\n")
-                && !value.contains("\r");
     }
 
     private int readChoice(String prompt, int min, int max) {

@@ -2,6 +2,7 @@
 package src;
 
 import java.io.IOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
@@ -29,6 +30,7 @@ public class FileDatabase {
     private final Path accountStatusesFile = databaseFolder.resolve("account_status.txt");
     private final Path loginSecurityFile = databaseFolder.resolve("login_security.txt");
     private final Path rewardsFile = databaseFolder.resolve("rewards.txt");
+    private final Path pendingDepositsFile = databaseFolder.resolve("pending_deposits.txt");
 
     // ==========================================
     // LOGIN SECURITY SETTINGS
@@ -58,6 +60,7 @@ public class FileDatabase {
             createFileIfMissing(accountStatusesFile);
             createFileIfMissing(loginSecurityFile);
             createFileIfMissing(rewardsFile);
+            createFileIfMissing(pendingDepositsFile);
 
             System.out.println("BancoFides database initialized successfully.");
             System.out.println("Database location: "
@@ -81,21 +84,12 @@ public class FileDatabase {
     // SAFE DATABASE READING
     // ==========================================
 
-    /*
-     * Returns null when reading fails.
-     * This is important because an empty list must not be
-     * mistaken for an empty database when an error occurs.
-     */
-
     private List<String> readFileSafely(Path file) {
 
         try {
             createFileIfMissing(file);
 
-            return Files.readAllLines(
-                    file,
-                    StandardCharsets.UTF_8
-            );
+            return Files.readAllLines(file, StandardCharsets.UTF_8);
 
         } catch (IOException e) {
 
@@ -105,11 +99,6 @@ public class FileDatabase {
             return null;
         }
     }
-
-    /*
-     * Existing public methods retain their List<String> return type
-     * for compatibility with the other project classes.
-     */
 
     private List<String> readFile(Path file) {
 
@@ -153,7 +142,7 @@ public class FileDatabase {
     }
 
     // ==========================================
-    // BASIC RECORD VALIDATION
+    // BASIC VALIDATION
     // ==========================================
 
     private boolean validateRecord(String record) {
@@ -173,6 +162,32 @@ public class FileDatabase {
                 && !accountID.contains("\r");
     }
 
+    private BigDecimal money(String value) {
+
+        try {
+            BigDecimal amount = new BigDecimal(value);
+
+            if (amount.scale() > 2) {
+                return null;
+            }
+
+            return amount;
+
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private boolean sameMoney(String first, String second) {
+
+        BigDecimal a = money(first);
+        BigDecimal b = money(second);
+
+        return a != null
+                && b != null
+                && a.compareTo(b) == 0;
+    }
+
     private boolean validateCustomerRecord(String record) {
 
         if (!validateRecord(record)) {
@@ -186,15 +201,16 @@ public class FileDatabase {
             return false;
         }
 
+        BigDecimal balance = money(fields[4]);
+        BigDecimal deposits = money(fields[5]);
+
         try {
-            double balance = Double.parseDouble(fields[4]);
-            double deposits = Double.parseDouble(fields[5]);
             int points = Integer.parseInt(fields[6]);
 
-            return Double.isFinite(balance)
-                    && Double.isFinite(deposits)
-                    && balance >= 0
-                    && deposits >= 0
+            return balance != null
+                    && deposits != null
+                    && balance.compareTo(BigDecimal.ZERO) >= 0
+                    && deposits.compareTo(BigDecimal.ZERO) >= 0
                     && points >= 0;
 
         } catch (NumberFormatException e) {
@@ -233,28 +249,22 @@ public class FileDatabase {
                 || fields.length > 9
                 || fields[0].trim().isEmpty()
                 || !validateAccountID(fields[1])
-                || fields[2].trim().isEmpty()) {
+                || fields[2].trim().isEmpty()
+                || fields[6].trim().isEmpty()
+                || !fields[7].equalsIgnoreCase("SUCCESS")) {
             return false;
         }
 
-        try {
+        BigDecimal amount = money(fields[3]);
+        BigDecimal previous = money(fields[4]);
+        BigDecimal updated = money(fields[5]);
 
-            double amount = Double.parseDouble(fields[3]);
-            double previousBalance = Double.parseDouble(fields[4]);
-            double newBalance = Double.parseDouble(fields[5]);
-
-            return Double.isFinite(amount)
-                    && Double.isFinite(previousBalance)
-                    && Double.isFinite(newBalance)
-                    && amount > 0
-                    && previousBalance >= 0
-                    && newBalance >= 0
-                    && !fields[6].trim().isEmpty()
-                    && fields[7].equalsIgnoreCase("SUCCESS");
-
-        } catch (NumberFormatException e) {
-            return false;
-        }
+        return amount != null
+                && previous != null
+                && updated != null
+                && amount.compareTo(BigDecimal.ZERO) > 0
+                && previous.compareTo(BigDecimal.ZERO) >= 0
+                && updated.compareTo(BigDecimal.ZERO) >= 0;
     }
 
     private boolean transactionIDExists(
@@ -298,14 +308,14 @@ public class FileDatabase {
             return false;
         }
 
+        BigDecimal depositAmount = money(fields[3]);
+
         try {
+            int points = Integer.parseInt(fields[4]);
 
-            double depositAmount = Double.parseDouble(fields[3]);
-            int pointsEarned = Integer.parseInt(fields[4]);
-
-            return Double.isFinite(depositAmount)
-                    && depositAmount > 0
-                    && pointsEarned >= 0;
+            return depositAmount != null
+                    && depositAmount.compareTo(BigDecimal.ZERO) > 0
+                    && points >= 0;
 
         } catch (NumberFormatException e) {
             return false;
@@ -325,12 +335,10 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 6) {
-
-                if (fields[0].equalsIgnoreCase(rewardID)
-                        || fields[2].equalsIgnoreCase(transactionID)) {
-                    return true;
-                }
+            if (fields.length >= 3
+                    && (fields[0].equalsIgnoreCase(rewardID)
+                    || fields[2].equalsIgnoreCase(transactionID))) {
+                return true;
             }
         }
 
@@ -338,12 +346,438 @@ public class FileDatabase {
     }
 
     // ==========================================
+    // PENDING DEPOSIT VALIDATION
+    // ==========================================
+
+    /*
+     * pending_deposits.txt format:
+     *
+     * pendingID|accountID|amount|submittedAt|status|reviewedBy|reviewedAt
+     *
+     * Status:
+     * PENDING
+     * APPROVED
+     * REJECTED
+     */
+
+    private boolean validatePendingDepositRecord(String record) {
+
+        if (!validateRecord(record)) {
+            return false;
+        }
+
+        String[] fields = record.split("\\|", -1);
+
+        if (fields.length != 7
+                || fields[0].trim().isEmpty()
+                || !validateAccountID(fields[1])
+                || fields[3].trim().isEmpty()
+                || fields[4].trim().isEmpty()) {
+            return false;
+        }
+
+        BigDecimal amount = money(fields[2]);
+
+        if (amount == null
+                || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        String status = fields[4].trim().toUpperCase();
+
+        if (!status.equals("PENDING")
+                && !status.equals("APPROVED")
+                && !status.equals("REJECTED")) {
+            return false;
+        }
+
+        if (status.equals("PENDING")) {
+            return fields[5].isEmpty() && fields[6].isEmpty();
+        }
+
+        return validateAccountID(fields[5])
+                && !fields[6].trim().isEmpty();
+    }
+
+    private boolean pendingDepositIDExists(
+            List<String> records,
+            String pendingID) {
+
+        for (String record : records) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length == 7
+                    && fields[0].equalsIgnoreCase(pendingID)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private int findPendingDepositIndex(
+            List<String> records,
+            String pendingID) {
+
+        int found = -1;
+
+        for (int i = 0; i < records.size(); i++) {
+
+            String record = records.get(i);
+
+            if (!validatePendingDepositRecord(record)) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields[0].equalsIgnoreCase(pendingID.trim())) {
+
+                if (found != -1) {
+                    return -2;
+                }
+
+                found = i;
+            }
+        }
+
+        return found;
+    }
+
+    // ==========================================
+    // PENDING DEPOSIT STORAGE
+    // ==========================================
+
+    public synchronized List<String> readPendingDeposits() {
+
+        List<String> records = readFileSafely(pendingDepositsFile);
+
+        if (records == null) {
+            return new ArrayList<>();
+        }
+
+        return records;
+    }
+
+    public synchronized int countPendingDeposits() {
+
+        List<String> records = readFileSafely(pendingDepositsFile);
+
+        if (records == null) {
+            return 0;
+        }
+
+        int count = 0;
+
+        for (String record : records) {
+
+            if (!validatePendingDepositRecord(record)) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields[4].equalsIgnoreCase("PENDING")) {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    public synchronized boolean savePendingDeposit(String record) {
+
+        if (!validatePendingDepositRecord(record)) {
+            return false;
+        }
+
+        String[] fields = record.split("\\|", -1);
+
+        if (!fields[4].equalsIgnoreCase("PENDING")) {
+            return false;
+        }
+
+        List<String> records = readFileSafely(pendingDepositsFile);
+
+        if (records == null) {
+            return false;
+        }
+
+        if (pendingDepositIDExists(records, fields[0])) {
+            System.out.println("Duplicate pending deposit ID detected.");
+            return false;
+        }
+
+        List<String> customers = readFileSafely(customersFile);
+        List<String> statuses = readFileSafely(accountStatusesFile);
+
+        if (customers == null || statuses == null
+                || !customerStatusIsActive(fields[1], customers, statuses)) {
+            System.out.println("Pending deposit rejected: customer account is unavailable.");
+            return false;
+        }
+
+        return appendLine(pendingDepositsFile, record);
+    }
+
+    // ==========================================
+    // APPROVE PENDING DEPOSIT
+    // ==========================================
+
+    public synchronized boolean approvePendingDeposit(
+            String pendingID,
+            String updatedCustomerRecord,
+            String transactionRecord,
+            String rewardRecord,
+            String staffID,
+            String reviewedAt) {
+
+        if (!validateAccountID(pendingID)
+                || !validateAccountID(staffID)
+                || reviewedAt == null
+                || reviewedAt.trim().isEmpty()
+                || !validateCustomerRecord(updatedCustomerRecord)
+                || !validateTransactionRecord(transactionRecord)
+                || !validateRewardRecord(rewardRecord)) {
+            return false;
+        }
+
+        List<String> originalPending =
+                readFileSafely(pendingDepositsFile);
+
+        List<String> originalCustomers =
+                readFileSafely(customersFile);
+
+        List<String> originalTransactions =
+                readFileSafely(transactionsFile);
+
+        List<String> originalRewards =
+                readFileSafely(rewardsFile);
+
+        List<String> statuses =
+                readFileSafely(accountStatusesFile);
+
+        if (originalPending == null
+                || originalCustomers == null
+                || originalTransactions == null
+                || originalRewards == null
+                || statuses == null) {
+            return false;
+        }
+
+        int pendingIndex =
+                findPendingDepositIndex(originalPending, pendingID);
+
+        if (pendingIndex < 0) {
+            System.out.println("Pending deposit was not found or is duplicated.");
+            return false;
+        }
+
+        String[] pending =
+                originalPending.get(pendingIndex).split("\\|", -1);
+
+        if (!pending[4].equalsIgnoreCase("PENDING")) {
+            System.out.println("This deposit has already been reviewed.");
+            return false;
+        }
+
+        String accountID = pending[1];
+
+        String[] updatedFields =
+                updatedCustomerRecord.split("\\|", -1);
+
+        String[] transactionFields =
+                transactionRecord.split("\\|", -1);
+
+        String[] rewardFields =
+                rewardRecord.split("\\|", -1);
+
+        if (!updatedFields[0].equalsIgnoreCase(accountID)
+                || !transactionFields[1].equalsIgnoreCase(accountID)
+                || !transactionFields[2].equalsIgnoreCase("DEPOSIT")
+                || !rewardFields[1].equalsIgnoreCase(accountID)
+                || !rewardFields[2].equalsIgnoreCase(transactionFields[0])
+                || !sameMoney(pending[2], transactionFields[3])
+                || !sameMoney(rewardFields[3], pending[2])) {
+
+            System.out.println("Deposit approval information does not match.");
+            return false;
+        }
+
+        if (!customerStatusIsActive(accountID, originalCustomers, statuses)) {
+            System.out.println("Approval rejected: customer account is inactive.");
+            return false;
+        }
+
+        if (transactionIDExists(originalTransactions, transactionFields[0])) {
+            System.out.println("Duplicate transaction ID detected.");
+            return false;
+        }
+
+        if (rewardExists(originalRewards, rewardFields[0], rewardFields[2])) {
+            System.out.println("Duplicate reward record detected.");
+            return false;
+        }
+
+        String originalCustomer =
+                findCustomerRecord(accountID, originalCustomers);
+
+        if (originalCustomer == null
+                || !validateDepositChanges(
+                        originalCustomer,
+                        updatedCustomerRecord,
+                        transactionFields,
+                        rewardFields)) {
+
+            System.out.println("Approval rejected: customer balance or reward calculation is invalid.");
+            return false;
+        }
+
+        List<String> updatedCustomers = replaceCustomerRecord(
+                accountID,
+                updatedCustomerRecord,
+                originalCustomers
+        );
+
+        if (updatedCustomers == null) {
+            return false;
+        }
+
+        List<String> updatedTransactions =
+                new ArrayList<>(originalTransactions);
+
+        updatedTransactions.add(transactionRecord);
+
+        List<String> updatedRewards =
+                new ArrayList<>(originalRewards);
+
+        updatedRewards.add(rewardRecord);
+
+        List<String> updatedPending =
+                new ArrayList<>(originalPending);
+
+        updatedPending.set(
+                pendingIndex,
+                pending[0] + "|"
+                + pending[1] + "|"
+                + pending[2] + "|"
+                + pending[3] + "|APPROVED|"
+                + staffID.trim() + "|"
+                + reviewedAt.trim()
+        );
+
+        // Save customer balance first.
+        if (!writeLinesAtomically(
+                customersFile, updatedCustomers, "customers_temp.txt")) {
+            return false;
+        }
+
+        // Save successful transaction.
+        if (!writeLinesAtomically(
+                transactionsFile, updatedTransactions, "transactions_temp.txt")) {
+
+            writeLinesAtomically(
+                    customersFile, originalCustomers, "customers_temp.txt");
+            return false;
+        }
+
+        // Save earned rewards.
+        if (!writeLinesAtomically(
+                rewardsFile, updatedRewards, "rewards_temp.txt")) {
+
+            writeLinesAtomically(
+                    customersFile, originalCustomers, "customers_temp.txt");
+
+            writeLinesAtomically(
+                    transactionsFile, originalTransactions, "transactions_temp.txt");
+            return false;
+        }
+
+        // Mark pending deposit as approved last.
+        if (!writeLinesAtomically(
+                pendingDepositsFile, updatedPending, "pending_deposits_temp.txt")) {
+
+            writeLinesAtomically(
+                    customersFile, originalCustomers, "customers_temp.txt");
+
+            writeLinesAtomically(
+                    transactionsFile, originalTransactions, "transactions_temp.txt");
+
+            writeLinesAtomically(
+                    rewardsFile, originalRewards, "rewards_temp.txt");
+
+            return false;
+        }
+
+        return true;
+    }
+
+    // ==========================================
+    // REJECT PENDING DEPOSIT
+    // ==========================================
+
+    public synchronized boolean rejectPendingDeposit(
+            String pendingID,
+            String staffID,
+            String reviewedAt) {
+
+        if (!validateAccountID(pendingID)
+                || !validateAccountID(staffID)
+                || reviewedAt == null
+                || reviewedAt.trim().isEmpty()) {
+            return false;
+        }
+
+        List<String> records =
+                readFileSafely(pendingDepositsFile);
+
+        if (records == null) {
+            return false;
+        }
+
+        int index = findPendingDepositIndex(records, pendingID);
+
+        if (index < 0) {
+            System.out.println("Pending deposit was not found or is duplicated.");
+            return false;
+        }
+
+        String[] fields = records.get(index).split("\\|", -1);
+
+        if (!fields[4].equalsIgnoreCase("PENDING")) {
+            System.out.println("This deposit has already been reviewed.");
+            return false;
+        }
+
+        List<String> updatedRecords = new ArrayList<>(records);
+
+        updatedRecords.set(
+                index,
+                fields[0] + "|"
+                + fields[1] + "|"
+                + fields[2] + "|"
+                + fields[3] + "|REJECTED|"
+                + staffID.trim() + "|"
+                + reviewedAt.trim()
+        );
+
+        return writeLinesAtomically(
+                pendingDepositsFile,
+                updatedRecords,
+                "pending_deposits_temp.txt"
+        );
+    }
+
+    // ==========================================
     // APPEND DATABASE RECORDS
     // ==========================================
 
-    private synchronized boolean appendLine(
-            Path file,
-            String record) {
+    private synchronized boolean appendLine(Path file, String record) {
 
         if (!validateRecord(record)) {
             return false;
@@ -365,9 +799,7 @@ public class FileDatabase {
 
         } catch (IOException e) {
 
-            System.out.println("Error saving record: "
-                    + e.getMessage());
-
+            System.out.println("Error saving record: " + e.getMessage());
             return false;
         }
     }
@@ -448,6 +880,44 @@ public class FileDatabase {
     }
 
     // ==========================================
+    // CUSTOMER LOOKUP HELPERS
+    // ==========================================
+
+    private String findCustomerRecord(
+            String accountID,
+            List<String> customers) {
+
+        String found = null;
+
+        for (String record : customers) {
+
+            if (!validateCustomerRecord(record)) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields[0].equalsIgnoreCase(accountID.trim())) {
+
+                if (found != null) {
+                    return null;
+                }
+
+                found = record;
+            }
+        }
+
+        return found;
+    }
+
+    private boolean customerExistsInRecords(
+            String accountID,
+            List<String> customers) {
+
+        return findCustomerRecord(accountID, customers) != null;
+    }
+
+    // ==========================================
     // ACCOUNT STATUS MANAGEMENT
     // ==========================================
 
@@ -463,16 +933,17 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 2
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
-                String status = fields[1].trim();
+                if (fields.length != 2) {
+                    return false;
+                }
 
-                return status.equalsIgnoreCase("ACTIVE");
+                return fields[1].trim().equalsIgnoreCase("ACTIVE");
             }
         }
 
-        // Existing accounts without status records remain active.
         return true;
     }
 
@@ -496,17 +967,16 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 2
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
+
+                if (fields.length != 2) {
+                    return "INACTIVE";
+                }
 
                 String status = fields[1].trim().toUpperCase();
 
-                if (status.equals("ACTIVE")
-                        || status.equals("INACTIVE")) {
-                    return status;
-                }
-
-                return "INACTIVE";
+                return status.equals("ACTIVE") ? "ACTIVE" : "INACTIVE";
             }
         }
 
@@ -533,9 +1003,11 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 2
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
-                return true;
+                return fields.length == 2
+                        && (fields[1].equalsIgnoreCase("ACTIVE")
+                        || fields[1].equalsIgnoreCase("INACTIVE"));
             }
         }
 
@@ -574,7 +1046,7 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 2
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!found) {
@@ -590,9 +1062,7 @@ public class FileDatabase {
         }
 
         if (!found) {
-            updatedRecords.add(
-                    accountID.trim() + "|" + normalizedStatus
-            );
+            updatedRecords.add(accountID.trim() + "|" + normalizedStatus);
         }
 
         return writeLinesAtomically(
@@ -615,7 +1085,6 @@ public class FileDatabase {
 
     /*
      * login_security.txt format:
-     *
      * accountID|failedAttempts|lockUntil
      */
 
@@ -647,7 +1116,6 @@ public class FileDatabase {
         List<String> records = readFileSafely(loginSecurityFile);
 
         if (records == null) {
-            // Fail closed if login security information cannot be read.
             return true;
         }
 
@@ -659,7 +1127,7 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 3
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!validLoginSecurityRecord(fields)) {
@@ -711,7 +1179,7 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 3
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!validLoginSecurityRecord(fields)) {
@@ -728,8 +1196,7 @@ public class FileDatabase {
         long lockUntil = 0;
 
         if (attempts >= MAX_LOGIN_ATTEMPTS) {
-            lockUntil = System.currentTimeMillis()
-                    + LOCK_DURATION_MILLIS;
+            lockUntil = System.currentTimeMillis() + LOCK_DURATION_MILLIS;
         }
 
         if (!saveLoginSecurityRecord(accountID, attempts, lockUntil)) {
@@ -757,7 +1224,7 @@ public class FileDatabase {
         List<String> records = readFileSafely(loginSecurityFile);
 
         if (records == null) {
-            return 0;
+            return MAX_LOGIN_ATTEMPTS;
         }
 
         for (String record : records) {
@@ -768,11 +1235,11 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 3
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!validLoginSecurityRecord(fields)) {
-                    return 0;
+                    return MAX_LOGIN_ATTEMPTS;
                 }
 
                 return Integer.parseInt(fields[1]);
@@ -782,8 +1249,7 @@ public class FileDatabase {
         return 0;
     }
 
-    public synchronized long getLoginLockRemainingMillis(
-            String accountID) {
+    public synchronized long getLoginLockRemainingMillis(String accountID) {
 
         if (!validateAccountID(accountID)) {
             return 0;
@@ -792,7 +1258,7 @@ public class FileDatabase {
         List<String> records = readFileSafely(loginSecurityFile);
 
         if (records == null) {
-            return 0;
+            return LOCK_DURATION_MILLIS;
         }
 
         for (String record : records) {
@@ -803,11 +1269,11 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 3
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!validLoginSecurityRecord(fields)) {
-                    return 0;
+                    return LOCK_DURATION_MILLIS;
                 }
 
                 int attempts = Integer.parseInt(fields[1]);
@@ -855,14 +1321,12 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 3
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
                 if (!found) {
                     updatedRecords.add(
-                            accountID.trim()
-                            + "|" + attempts
-                            + "|" + lockUntil
+                            accountID.trim() + "|" + attempts + "|" + lockUntil
                     );
                     found = true;
                 }
@@ -874,9 +1338,7 @@ public class FileDatabase {
 
         if (!found) {
             updatedRecords.add(
-                    accountID.trim()
-                    + "|" + attempts
-                    + "|" + lockUntil
+                    accountID.trim() + "|" + attempts + "|" + lockUntil
             );
         }
 
@@ -923,10 +1385,10 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 7
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
-                if (found) {
+                if (found || fields.length != 7) {
                     return false;
                 }
 
@@ -985,10 +1447,10 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length == 4
+            if (fields.length >= 1
                     && fields[0].equalsIgnoreCase(accountID.trim())) {
 
-                if (found) {
+                if (found || fields.length != 4) {
                     return false;
                 }
 
@@ -1012,29 +1474,8 @@ public class FileDatabase {
     }
 
     // ==========================================
-    // CUSTOMER LOOKUP FOR TRANSACTION PROCESSING
+    // ACCOUNT STATUS CHECK FOR TRANSACTIONS
     // ==========================================
-
-    private boolean customerExistsInRecords(
-            String accountID,
-            List<String> customers) {
-
-        for (String record : customers) {
-
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
-
-            String[] fields = record.split("\\|", -1);
-
-            if (fields.length == 7
-                    && fields[0].equalsIgnoreCase(accountID.trim())) {
-                return true;
-            }
-        }
-
-        return false;
-    }
 
     private boolean customerStatusIsActive(
             String accountID,
@@ -1057,7 +1498,8 @@ public class FileDatabase {
         return updateCustomerAndSaveTransactions(
                 accountID,
                 updatedCustomerRecord,
-                transactionRecord
+                transactionRecord,
+                "DEPOSIT"
         );
     }
 
@@ -1074,20 +1516,16 @@ public class FileDatabase {
             return false;
         }
 
-        String[] updatedFields =
-                updatedCustomerRecord.split("\\|", -1);
-
-        String[] transactionFields =
-                transactionRecord.split("\\|", -1);
-
-        String[] rewardFields =
-                rewardRecord.split("\\|", -1);
+        String[] updatedFields = updatedCustomerRecord.split("\\|", -1);
+        String[] transactionFields = transactionRecord.split("\\|", -1);
+        String[] rewardFields = rewardRecord.split("\\|", -1);
 
         if (!updatedFields[0].equalsIgnoreCase(accountID.trim())
                 || !transactionFields[1].equalsIgnoreCase(accountID.trim())
                 || !transactionFields[2].equalsIgnoreCase("DEPOSIT")
                 || !rewardFields[1].equalsIgnoreCase(accountID.trim())
-                || !rewardFields[2].equalsIgnoreCase(transactionFields[0])) {
+                || !rewardFields[2].equalsIgnoreCase(transactionFields[0])
+                || !sameMoney(rewardFields[3], transactionFields[3])) {
             return false;
         }
 
@@ -1118,42 +1556,29 @@ public class FileDatabase {
             return false;
         }
 
-        List<String> updatedCustomers = new ArrayList<>();
-        boolean customerFound = false;
+        String originalRecord = findCustomerRecord(accountID, originalCustomers);
 
-        for (String record : originalCustomers) {
-
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
-
-            String[] fields = record.split("\\|", -1);
-
-            if (fields.length == 7
-                    && fields[0].equalsIgnoreCase(accountID.trim())) {
-
-                if (customerFound) {
-                    return false;
-                }
-
-                updatedCustomers.add(updatedCustomerRecord);
-                customerFound = true;
-
-            } else {
-                updatedCustomers.add(record);
-            }
-        }
-
-        if (!customerFound) {
+        if (originalRecord == null
+                || !validateDepositChanges(
+                        originalRecord,
+                        updatedCustomerRecord,
+                        transactionFields,
+                        rewardFields)) {
+            System.out.println("Deposit rejected: account balance or reward information does not match.");
             return false;
         }
 
-        List<String> updatedTransactions =
-                new ArrayList<>(originalTransactions);
+        List<String> updatedCustomers = replaceCustomerRecord(
+                accountID, updatedCustomerRecord, originalCustomers);
+
+        if (updatedCustomers == null) {
+            return false;
+        }
+
+        List<String> updatedTransactions = new ArrayList<>(originalTransactions);
         updatedTransactions.add(transactionRecord);
 
-        List<String> updatedRewards =
-                new ArrayList<>(originalRewards);
+        List<String> updatedRewards = new ArrayList<>(originalRewards);
         updatedRewards.add(rewardRecord);
 
         if (!writeLinesAtomically(
@@ -1184,6 +1609,52 @@ public class FileDatabase {
         return true;
     }
 
+    private boolean validateDepositChanges(
+            String originalRecord,
+            String updatedRecord,
+            String[] transaction,
+            String[] reward) {
+
+        String[] original = originalRecord.split("\\|", -1);
+        String[] updated = updatedRecord.split("\\|", -1);
+
+        BigDecimal amount = money(transaction[3]);
+        BigDecimal previous = money(transaction[4]);
+        BigDecimal newBalance = money(transaction[5]);
+
+        BigDecimal oldBalance = money(original[4]);
+        BigDecimal oldDeposits = money(original[5]);
+        BigDecimal oldPoints;
+        BigDecimal newDeposits;
+        BigDecimal newBalanceFromRecord;
+        BigDecimal newPoints;
+        BigDecimal earnedPoints;
+
+        try {
+            oldPoints = new BigDecimal(original[6]);
+            newPoints = new BigDecimal(updated[6]);
+            earnedPoints = new BigDecimal(reward[4]);
+            newDeposits = money(updated[5]);
+            newBalanceFromRecord = money(updated[4]);
+        } catch (Exception e) {
+            return false;
+        }
+
+        if (amount == null || previous == null || newBalance == null
+                || oldBalance == null || oldDeposits == null
+                || newDeposits == null || newBalanceFromRecord == null
+                || oldPoints == null || newPoints == null
+                || earnedPoints == null) {
+            return false;
+        }
+
+        return previous.compareTo(oldBalance) == 0
+                && newBalance.compareTo(previous.add(amount)) == 0
+                && newBalanceFromRecord.compareTo(newBalance) == 0
+                && newDeposits.compareTo(oldDeposits.add(amount)) == 0
+                && newPoints.compareTo(oldPoints.add(earnedPoints)) == 0;
+    }
+
     // ==========================================
     // WITHDRAWAL PROCESSING
     // ==========================================
@@ -1196,7 +1667,8 @@ public class FileDatabase {
         return updateCustomerAndSaveTransactions(
                 accountID,
                 updatedCustomerRecord,
-                transactionRecord
+                transactionRecord,
+                "WITHDRAWAL"
         );
     }
 
@@ -1225,11 +1697,17 @@ public class FileDatabase {
         String[] senderFields = senderTransaction.split("\\|", -1);
         String[] recipientFields = recipientTransaction.split("\\|", -1);
 
-        if (!senderFields[0].equalsIgnoreCase(recipientFields[0])
+        if (senderFields.length != 9
+                || recipientFields.length != 9
+                || !senderFields[0].equalsIgnoreCase(recipientFields[0])
                 || !senderFields[1].equalsIgnoreCase(senderID.trim())
                 || !recipientFields[1].equalsIgnoreCase(recipientID.trim())
                 || !senderFields[2].equalsIgnoreCase("TRANSFER_OUT")
-                || !recipientFields[2].equalsIgnoreCase("TRANSFER_IN")) {
+                || !recipientFields[2].equalsIgnoreCase("TRANSFER_IN")
+                || !senderFields[8].equalsIgnoreCase(recipientID.trim())
+                || !recipientFields[8].equalsIgnoreCase(senderID.trim())
+                || !sameMoney(senderFields[3], recipientFields[3])
+                || !sameMoney(senderFields[6], recipientFields[6])) {
             return false;
         }
 
@@ -1255,8 +1733,20 @@ public class FileDatabase {
             return false;
         }
 
-        List<String> updatedCustomers = new ArrayList<>();
+        String originalSender = findCustomerRecord(senderID, originalCustomers);
+        String originalRecipient = findCustomerRecord(recipientID, originalCustomers);
 
+        if (originalSender == null || originalRecipient == null
+                || !validateTransferChanges(
+                        originalSender, updatedSenderRecord, senderFields, true)
+                || !validateTransferChanges(
+                        originalRecipient, updatedRecipientRecord, recipientFields, false)) {
+
+            System.out.println("Transfer rejected: account balances do not match.");
+            return false;
+        }
+
+        List<String> updatedCustomers = new ArrayList<>();
         boolean senderFound = false;
         boolean recipientFound = false;
 
@@ -1268,23 +1758,20 @@ public class FileDatabase {
 
             String[] fields = record.split("\\|", -1);
 
-            if (fields.length != 7) {
-                updatedCustomers.add(record);
-                continue;
-            }
+            if (fields.length >= 1
+                    && fields[0].equalsIgnoreCase(senderID.trim())) {
 
-            if (fields[0].equalsIgnoreCase(senderID.trim())) {
-
-                if (senderFound) {
+                if (senderFound || fields.length != 7) {
                     return false;
                 }
 
                 updatedCustomers.add(updatedSenderRecord);
                 senderFound = true;
 
-            } else if (fields[0].equalsIgnoreCase(recipientID.trim())) {
+            } else if (fields.length >= 1
+                    && fields[0].equalsIgnoreCase(recipientID.trim())) {
 
-                if (recipientFound) {
+                if (recipientFound || fields.length != 7) {
                     return false;
                 }
 
@@ -1300,11 +1787,7 @@ public class FileDatabase {
             return false;
         }
 
-        List<String> updatedTransactions =
-                new ArrayList<>(originalTransactions);
-
-        // Two records are allowed for one transfer:
-        // TRANSFER_OUT and TRANSFER_IN share the same transaction ID.
+        List<String> updatedTransactions = new ArrayList<>(originalTransactions);
         updatedTransactions.add(senderTransaction);
         updatedTransactions.add(recipientTransaction);
 
@@ -1318,11 +1801,54 @@ public class FileDatabase {
 
             writeLinesAtomically(
                     customersFile, originalCustomers, "customers_temp.txt");
-
             return false;
         }
 
         return true;
+    }
+
+    private boolean validateTransferChanges(
+            String originalRecord,
+            String updatedRecord,
+            String[] transaction,
+            boolean sender) {
+
+        String[] original = originalRecord.split("\\|", -1);
+        String[] updated = updatedRecord.split("\\|", -1);
+
+        BigDecimal amount = money(transaction[3]);
+        BigDecimal previous = money(transaction[4]);
+        BigDecimal newBalance = money(transaction[5]);
+        BigDecimal oldBalance = money(original[4]);
+        BigDecimal updatedBalance = money(updated[4]);
+        BigDecimal oldDeposits = money(original[5]);
+        BigDecimal updatedDeposits = money(updated[5]);
+
+        if (amount == null || previous == null || newBalance == null
+                || oldBalance == null || updatedBalance == null
+                || oldDeposits == null || updatedDeposits == null) {
+            return false;
+        }
+
+        if (sender) {
+
+            if (oldBalance.compareTo(amount) < 0
+                    || previous.compareTo(oldBalance) != 0
+                    || newBalance.compareTo(previous.subtract(amount)) != 0) {
+                return false;
+            }
+
+        } else {
+
+            if (previous.compareTo(oldBalance) != 0
+                    || newBalance.compareTo(previous.add(amount)) != 0) {
+                return false;
+            }
+        }
+
+        return updatedBalance.compareTo(newBalance) == 0
+                && updatedDeposits.compareTo(oldDeposits) == 0
+                && updated[6].equals(original[6]);
     }
 
     // ==========================================
@@ -1332,7 +1858,8 @@ public class FileDatabase {
     private synchronized boolean updateCustomerAndSaveTransactions(
             String accountID,
             String updatedCustomerRecord,
-            String transactionRecord) {
+            String transactionRecord,
+            String expectedType) {
 
         if (!validateAccountID(accountID)
                 || !validateCustomerRecord(updatedCustomerRecord)
@@ -1340,21 +1867,12 @@ public class FileDatabase {
             return false;
         }
 
-        String[] updatedFields =
-                updatedCustomerRecord.split("\\|", -1);
-
-        String[] transactionFields =
-                transactionRecord.split("\\|", -1);
+        String[] updatedFields = updatedCustomerRecord.split("\\|", -1);
+        String[] transactionFields = transactionRecord.split("\\|", -1);
 
         if (!updatedFields[0].equalsIgnoreCase(accountID.trim())
-                || !transactionFields[1].equalsIgnoreCase(accountID.trim())) {
-            return false;
-        }
-
-        String type = transactionFields[2];
-
-        if (!type.equalsIgnoreCase("DEPOSIT")
-                && !type.equalsIgnoreCase("WITHDRAWAL")) {
+                || !transactionFields[1].equalsIgnoreCase(accountID.trim())
+                || !transactionFields[2].equalsIgnoreCase(expectedType)) {
             return false;
         }
 
@@ -1378,39 +1896,24 @@ public class FileDatabase {
             return false;
         }
 
-        List<String> updatedCustomers = new ArrayList<>();
-        boolean found = false;
+        String originalRecord = findCustomerRecord(accountID, originalCustomers);
 
-        for (String record : originalCustomers) {
-
-            if (record == null || record.trim().isEmpty()) {
-                continue;
-            }
-
-            String[] fields = record.split("\\|", -1);
-
-            if (fields.length == 7
-                    && fields[0].equalsIgnoreCase(accountID.trim())) {
-
-                if (found) {
-                    return false;
-                }
-
-                updatedCustomers.add(updatedCustomerRecord);
-                found = true;
-
-            } else {
-                updatedCustomers.add(record);
-            }
-        }
-
-        if (!found) {
+        if (originalRecord == null
+                || !validateBalanceChange(
+                        originalRecord, updatedCustomerRecord,
+                        transactionFields, expectedType)) {
+            System.out.println("Transaction rejected: balance information does not match.");
             return false;
         }
 
-        List<String> updatedTransactions =
-                new ArrayList<>(originalTransactions);
+        List<String> updatedCustomers = replaceCustomerRecord(
+                accountID, updatedCustomerRecord, originalCustomers);
 
+        if (updatedCustomers == null) {
+            return false;
+        }
+
+        List<String> updatedTransactions = new ArrayList<>(originalTransactions);
         updatedTransactions.add(transactionRecord);
 
         if (!writeLinesAtomically(
@@ -1423,11 +1926,95 @@ public class FileDatabase {
 
             writeLinesAtomically(
                     customersFile, originalCustomers, "customers_temp.txt");
-
             return false;
         }
 
         return true;
+    }
+
+    private boolean validateBalanceChange(
+            String originalRecord,
+            String updatedRecord,
+            String[] transaction,
+            String type) {
+
+        String[] original = originalRecord.split("\\|", -1);
+        String[] updated = updatedRecord.split("\\|", -1);
+
+        BigDecimal amount = money(transaction[3]);
+        BigDecimal previous = money(transaction[4]);
+        BigDecimal newBalance = money(transaction[5]);
+        BigDecimal oldBalance = money(original[4]);
+        BigDecimal updatedBalance = money(updated[4]);
+        BigDecimal oldDeposits = money(original[5]);
+        BigDecimal updatedDeposits = money(updated[5]);
+
+        if (amount == null || previous == null || newBalance == null
+                || oldBalance == null || updatedBalance == null
+                || oldDeposits == null || updatedDeposits == null) {
+            return false;
+        }
+
+        if (previous.compareTo(oldBalance) != 0
+                || updatedBalance.compareTo(newBalance) != 0) {
+            return false;
+        }
+
+        if (type.equalsIgnoreCase("DEPOSIT")) {
+
+            return newBalance.compareTo(previous.add(amount)) == 0
+                    && updatedDeposits.compareTo(oldDeposits.add(amount)) == 0
+                    && updated[6].equals(original[6]);
+
+        }
+
+        if (type.equalsIgnoreCase("WITHDRAWAL")) {
+
+            return oldBalance.compareTo(amount) >= 0
+                    && newBalance.compareTo(previous.subtract(amount)) == 0
+                    && updatedDeposits.compareTo(oldDeposits) == 0
+                    && updated[6].equals(original[6]);
+        }
+
+        return false;
+    }
+
+    // ==========================================
+    // CUSTOMER RECORD REPLACEMENT
+    // ==========================================
+
+    private List<String> replaceCustomerRecord(
+            String accountID,
+            String updatedCustomerRecord,
+            List<String> originalCustomers) {
+
+        List<String> updatedCustomers = new ArrayList<>();
+        boolean found = false;
+
+        for (String record : originalCustomers) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
+
+            String[] fields = record.split("\\|", -1);
+
+            if (fields.length >= 1
+                    && fields[0].equalsIgnoreCase(accountID.trim())) {
+
+                if (found || fields.length != 7) {
+                    return null;
+                }
+
+                updatedCustomers.add(updatedCustomerRecord);
+                found = true;
+
+            } else {
+                updatedCustomers.add(record);
+            }
+        }
+
+        return found ? updatedCustomers : null;
     }
 
     // ==========================================

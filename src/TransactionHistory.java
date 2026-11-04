@@ -3,17 +3,20 @@ package src;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
-import java.util.Scanner;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Scanner;
 
 public class TransactionHistory {
 
     private final Scanner scanner;
     private final FileDatabase database;
+    private final Transaction_Protection security;
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
@@ -22,15 +25,14 @@ public class TransactionHistory {
     // CONSTRUCTORS
     // =========================================================
 
-    // Retained for compatibility with existing code.
     public TransactionHistory(Scanner scanner) {
         this(scanner, new FileDatabase());
     }
 
-    // Allows Dashboard and TransactionHistory to share a database.
     public TransactionHistory(Scanner scanner, FileDatabase database) {
         this.scanner = scanner;
         this.database = database;
+        this.security = new Transaction_Protection(database);
     }
 
     // =========================================================
@@ -38,6 +40,15 @@ public class TransactionHistory {
     // =========================================================
 
     public void withdraw(String accountID) {
+
+        if (!security.hasPermission("CUSTOMER", "WITHDRAWAL")
+                || !security.isAccountActive(accountID)) {
+            showMessage(
+                    "TRANSACTION FAILED",
+                    "Your account is not authorized or active."
+            );
+            return;
+        }
 
         String customerRecord = findCustomer(accountID);
 
@@ -47,7 +58,6 @@ public class TransactionHistory {
         }
 
         String[] fields = customerRecord.split("\\|", -1);
-
         BigDecimal balance;
 
         try {
@@ -69,11 +79,7 @@ public class TransactionHistory {
 
         BigDecimal amount = readAmount("Enter withdrawal amount: PHP ");
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            showMessage(
-                    "TRANSACTION FAILED",
-                    "Amount must be greater than zero."
-            );
+        if (!validateTransaction(accountID, "WITHDRAWAL", amount, null)) {
             return;
         }
 
@@ -97,7 +103,10 @@ public class TransactionHistory {
             return;
         }
 
-        // Verify the latest account balance before processing.
+        if (!validateTransaction(accountID, "WITHDRAWAL", amount, null)) {
+            return;
+        }
+
         customerRecord = findCustomer(accountID);
 
         if (customerRecord == null) {
@@ -108,6 +117,10 @@ public class TransactionHistory {
         fields = customerRecord.split("\\|", -1);
 
         try {
+            if (fields.length != 7) {
+                throw new NumberFormatException();
+            }
+
             balance = new BigDecimal(fields[4]);
 
             if (amount.compareTo(balance) > 0) {
@@ -128,7 +141,6 @@ public class TransactionHistory {
             );
 
             String transactionID = generateTransactionID();
-
             String dateTime = LocalDateTime.now().format(DATE_FORMAT);
 
             String transactionRecord =
@@ -141,12 +153,20 @@ public class TransactionHistory {
                     + dateTime + "|"
                     + "SUCCESS";
 
-            // Save the updated customer and transaction.
-            database.processWithdrawal(
+            boolean processed = database.processWithdrawal(
                     accountID,
                     updatedRecord,
                     transactionRecord
             );
+
+            if (!processed) {
+                showMessage(
+                        "TRANSACTION FAILED",
+                        "The withdrawal could not be saved. "
+                        + "Your transaction was not confirmed."
+                );
+                return;
+            }
 
             saveActivityLog(
                     "WITHDRAWAL_SUCCESS|" + accountID + "|" + transactionID
@@ -163,14 +183,12 @@ public class TransactionHistory {
             System.out.println("==================================================");
 
         } catch (NumberFormatException e) {
-
             showMessage(
                     "TRANSACTION FAILED",
                     "Invalid customer account information."
             );
 
         } catch (RuntimeException e) {
-
             showMessage(
                     "TRANSACTION FAILED",
                     "Your withdrawal could not be completed.\nReason: "
@@ -187,6 +205,15 @@ public class TransactionHistory {
 
     public void transfer(String senderID) {
 
+        if (!security.hasPermission("CUSTOMER", "TRANSFER")
+                || !security.isAccountActive(senderID)) {
+            showMessage(
+                    "TRANSFER FAILED",
+                    "Your account is not authorized or active."
+            );
+            return;
+        }
+
         String senderRecord = findCustomer(senderID);
 
         if (senderRecord == null) {
@@ -195,7 +222,6 @@ public class TransactionHistory {
         }
 
         String[] senderFields = senderRecord.split("\\|", -1);
-
         BigDecimal senderBalance;
 
         try {
@@ -244,6 +270,14 @@ public class TransactionHistory {
             return;
         }
 
+        if (!security.isAccountActive(recipientID)) {
+            showMessage(
+                    "TRANSFER FAILED",
+                    "The recipient account is inactive."
+            );
+            return;
+        }
+
         String[] recipientFields = recipientRecord.split("\\|", -1);
 
         BigDecimal recipientBalance;
@@ -265,11 +299,7 @@ public class TransactionHistory {
 
         BigDecimal amount = readAmount("Enter transfer amount: PHP ");
 
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) {
-            showMessage(
-                    "TRANSFER FAILED",
-                    "Amount must be greater than zero."
-            );
+        if (!validateTransaction(senderID, "TRANSFER", amount, recipientID)) {
             return;
         }
 
@@ -297,7 +327,10 @@ public class TransactionHistory {
             return;
         }
 
-        // Recheck both accounts before processing.
+        if (!validateTransaction(senderID, "TRANSFER", amount, recipientID)) {
+            return;
+        }
+
         senderRecord = findCustomer(senderID);
         recipientRecord = findCustomer(recipientID);
 
@@ -313,6 +346,10 @@ public class TransactionHistory {
         recipientFields = recipientRecord.split("\\|", -1);
 
         try {
+            if (senderFields.length != 7 || recipientFields.length != 7) {
+                throw new NumberFormatException();
+            }
+
             senderBalance = new BigDecimal(senderFields[4]);
             recipientBalance = new BigDecimal(recipientFields[4]);
 
@@ -344,7 +381,6 @@ public class TransactionHistory {
             String transactionID = generateTransactionID();
             String dateTime = LocalDateTime.now().format(DATE_FORMAT);
 
-            // Sender's transaction record.
             String senderTransaction =
                     transactionID + "|"
                     + senderID + "|"
@@ -356,7 +392,6 @@ public class TransactionHistory {
                     + "SUCCESS|"
                     + recipientID;
 
-            // Recipient's transaction record.
             String recipientTransaction =
                     transactionID + "|"
                     + recipientID + "|"
@@ -368,8 +403,7 @@ public class TransactionHistory {
                     + "SUCCESS|"
                     + senderID;
 
-            // Process both accounts and both transaction records.
-            database.processTransfer(
+            boolean processed = database.processTransfer(
                     senderID,
                     updatedSender,
                     recipientID,
@@ -377,6 +411,15 @@ public class TransactionHistory {
                     senderTransaction,
                     recipientTransaction
             );
+
+            if (!processed) {
+                showMessage(
+                        "TRANSFER FAILED",
+                        "The transfer could not be saved. "
+                        + "Your balances were not confirmed as updated."
+                );
+                return;
+            }
 
             saveActivityLog(
                     "TRANSFER_SUCCESS|" + senderID + "|" + transactionID
@@ -395,14 +438,12 @@ public class TransactionHistory {
             System.out.println("==================================================");
 
         } catch (NumberFormatException e) {
-
             showMessage(
                     "TRANSFER FAILED",
                     "Invalid sender or recipient account information."
             );
 
         } catch (RuntimeException e) {
-
             showMessage(
                     "TRANSFER FAILED",
                     "The transfer could not be completed.\nReason: "
@@ -414,19 +455,153 @@ public class TransactionHistory {
     }
 
     // =========================================================
-    // TRANSACTION HISTORY
+    // TRANSACTION HISTORY MENU
     // =========================================================
 
     public void showHistory(String accountID) {
+
+        while (true) {
+
+            System.out.println("\n==================================================");
+            System.out.println("               TRANSACTION HISTORY");
+            System.out.println("==================================================");
+            System.out.println("Account ID: " + accountID);
+            System.out.println("--------------------------------------------------");
+            System.out.println("[1] View All Transactions");
+            System.out.println("[2] Filter by Transaction Type");
+            System.out.println("[3] Filter by Date");
+            System.out.println("[4] View Deposit Request History");
+            System.out.println("[5] Return");
+            System.out.println("--------------------------------------------------");
+
+            int choice = readChoice(1, 5);
+
+            switch (choice) {
+
+                case 1:
+                    displayHistory(accountID, "ALL", null);
+                    break;
+
+                case 2:
+                    filterHistoryByType(accountID);
+                    break;
+
+                case 3:
+                    filterHistoryByDate(accountID);
+                    break;
+
+                case 4:
+                    displayDepositRequestHistory(accountID);
+                    break;
+
+                case 5:
+                    return;
+
+                default:
+                    System.out.println("Invalid choice.");
+            }
+        }
+    }
+
+    // =========================================================
+    // FILTER BY TRANSACTION TYPE
+    // =========================================================
+
+    private void filterHistoryByType(String accountID) {
+
+        System.out.println("\n------------------------------------------");
+        System.out.println("       FILTER TRANSACTIONS BY TYPE");
+        System.out.println("------------------------------------------");
+        System.out.println("[1] Deposits");
+        System.out.println("[2] Withdrawals");
+        System.out.println("[3] Transfers");
+        System.out.println("[4] Return");
+        System.out.println("------------------------------------------");
+
+        int choice = readChoice(1, 4);
+
+        String type;
+
+        switch (choice) {
+
+            case 1:
+                type = "DEPOSIT";
+                break;
+
+            case 2:
+                type = "WITHDRAWAL";
+                break;
+
+            case 3:
+                type = "TRANSFER";
+                break;
+
+            case 4:
+                return;
+
+            default:
+                return;
+        }
+
+        displayHistory(accountID, type, null);
+    }
+
+    // =========================================================
+    // FILTER BY DATE
+    // =========================================================
+
+    private void filterHistoryByDate(String accountID) {
+
+        LocalDate selectedDate;
+
+        while (true) {
+
+            System.out.print("Enter date (YYYY-MM-DD): ");
+            String input = scanner.nextLine().trim();
+
+            try {
+                selectedDate = LocalDate.parse(input);
+                break;
+
+            } catch (DateTimeParseException e) {
+                System.out.println(
+                        "Invalid date. Please use YYYY-MM-DD."
+                );
+            }
+        }
+
+        displayHistory(
+                accountID,
+                "ALL",
+                selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        );
+    }
+
+    // =========================================================
+    // DISPLAY FILTERED TRANSACTION HISTORY
+    // =========================================================
+
+    private void displayHistory(
+            String accountID,
+            String selectedType,
+            String selectedDate) {
 
         System.out.println("\n==================================================");
         System.out.println("               TRANSACTION HISTORY");
         System.out.println("==================================================");
         System.out.println("Account ID: " + accountID);
+
+        if (!selectedType.equals("ALL")) {
+            System.out.println("Transaction Type: " + selectedType);
+        }
+
+        if (selectedDate != null) {
+            System.out.println("Date: " + selectedDate);
+        }
+
         System.out.println("--------------------------------------------------");
 
         List<String> transactions = database.readTransactions();
-
         boolean found = false;
 
         if (transactions != null) {
@@ -443,34 +618,190 @@ public class TransactionHistory {
                     continue;
                 }
 
-                if (fields[1].equalsIgnoreCase(accountID)) {
-
-                    found = true;
-
-                    System.out.println("Transaction ID  : " + fields[0]);
-                    System.out.println("Type            : " + fields[2]);
-                    System.out.println("Amount          : PHP " + fields[3]);
-                    System.out.println("Previous Balance: PHP " + fields[4]);
-                    System.out.println("New Balance     : PHP " + fields[5]);
-                    System.out.println("Date and Time   : " + fields[6]);
-                    System.out.println("Status          : " + fields[7]);
-
-                    if (fields.length >= 9) {
-                        System.out.println("Other Account   : " + fields[8]);
-                    }
-
-                    System.out.println("--------------------------------------------------");
+                if (!fields[1].equalsIgnoreCase(accountID)) {
+                    continue;
                 }
+
+                String transactionType = fields[2];
+
+                if (!matchesType(transactionType, selectedType)) {
+                    continue;
+                }
+
+                if (selectedDate != null
+                        && !fields[6].startsWith(selectedDate)) {
+                    continue;
+                }
+
+                found = true;
+
+                System.out.println("Transaction ID  : " + fields[0]);
+                System.out.println("Type            : " + fields[2]);
+                System.out.println("Amount          : PHP " + fields[3]);
+                System.out.println("Previous Balance: PHP " + fields[4]);
+                System.out.println("New Balance     : PHP " + fields[5]);
+                System.out.println("Date and Time   : " + fields[6]);
+                System.out.println("Status          : " + fields[7]);
+
+                if (fields.length >= 9) {
+                    System.out.println("Other Account   : " + fields[8]);
+                }
+
+                System.out.println("--------------------------------------------------");
             }
         }
 
         if (!found) {
-            System.out.println("No transactions found.");
+            System.out.println("No matching transactions found.");
+        }
+
+        System.out.println("==================================================");
+        pause();
+    }
+
+    // =========================================================
+    // DISPLAY DEPOSIT REQUEST HISTORY
+    // =========================================================
+
+    private void displayDepositRequestHistory(String accountID) {
+
+        System.out.println("\n==================================================");
+        System.out.println("             DEPOSIT REQUEST HISTORY");
+        System.out.println("==================================================");
+        System.out.println("Account ID: " + accountID);
+        System.out.println("--------------------------------------------------");
+
+        List<String> requests = database.readPendingDeposits();
+
+        boolean found = false;
+
+        if (requests != null) {
+
+            for (String record : requests) {
+
+                if (record == null || record.trim().isEmpty()) {
+                    continue;
+                }
+
+                String[] fields = record.split("\\|", -1);
+
+                // Correct pending deposit record contains 7 fields.
+                if (fields.length != 7) {
+                    continue;
+                }
+
+                // Only show requests belonging to the logged-in customer.
+                if (!fields[1].equalsIgnoreCase(accountID)) {
+                    continue;
+                }
+
+                found = true;
+
+                System.out.println("Request ID      : " + fields[0]);
+                System.out.println("Request Type    : DEPOSIT");
+
+                try {
+                    BigDecimal amount = new BigDecimal(fields[2]);
+
+                    System.out.printf(
+                            "Amount          : PHP %,.2f%n",
+                            amount
+                    );
+
+                } catch (NumberFormatException e) {
+                    System.out.println("Amount          : Invalid record");
+                }
+
+                System.out.println("Submitted At    : " + fields[3]);
+                System.out.println("Status          : " + fields[4]);
+
+                if (fields[4].equalsIgnoreCase("PENDING")) {
+
+                    System.out.println("Reviewed By     : Not yet reviewed");
+                    System.out.println("Reviewed At     : Not yet reviewed");
+
+                } else {
+
+                    System.out.println("Reviewed By     : " + fields[5]);
+                    System.out.println("Reviewed At     : " + fields[6]);
+                }
+
+                System.out.println("--------------------------------------------------");
+            }
+        }
+
+        if (!found) {
+            System.out.println("You have no deposit requests yet.");
         }
 
         System.out.println("==================================================");
 
         pause();
+    }
+
+    // =========================================================
+    // MATCH TRANSACTION TYPE
+    // =========================================================
+
+    private boolean matchesType(String transactionType, String selectedType) {
+
+        if (selectedType.equals("ALL")) {
+            return true;
+        }
+
+        if (selectedType.equals("TRANSFER")) {
+            return transactionType.equalsIgnoreCase("TRANSFER_IN")
+                    || transactionType.equalsIgnoreCase("TRANSFER_OUT")
+                    || transactionType.equalsIgnoreCase("TRANSFER");
+        }
+
+        return transactionType.equalsIgnoreCase(selectedType);
+    }
+
+    // =========================================================
+    // TRANSACTION SECURITY VALIDATION
+    // =========================================================
+
+    private boolean validateTransaction(
+            String accountID,
+            String transactionType,
+            BigDecimal amount,
+            String recipientID) {
+
+        if (!security.isAccountActive(accountID)) {
+            showMessage(
+                    "TRANSACTION FAILED",
+                    "Your account is inactive or could not be verified."
+            );
+            return false;
+        }
+
+        if (recipientID != null
+                && !security.isAccountActive(recipientID)) {
+            showMessage(
+                    "TRANSACTION FAILED",
+                    "The recipient account is inactive or could not be verified."
+            );
+            return false;
+        }
+
+        boolean valid = security.validateTransaction(
+                accountID,
+                transactionType,
+                amount,
+                recipientID
+        );
+
+        if (!valid) {
+            showMessage(
+                    "TRANSACTION FAILED",
+                    "Transaction validation failed. Please check your account, "
+                    + "balance, and transaction details."
+            );
+            return false;
+        }
+
+        return true;
     }
 
     // =========================================================
@@ -557,6 +888,12 @@ public class TransactionHistory {
             }
         }
 
+        if (highestNumber == Integer.MAX_VALUE) {
+            throw new IllegalStateException(
+                    "Transaction ID limit has been reached."
+            );
+        }
+
         return "T" + (highestNumber + 1);
     }
 
@@ -574,6 +911,13 @@ public class TransactionHistory {
             try {
                 BigDecimal amount = new BigDecimal(input);
 
+                if (amount.compareTo(BigDecimal.ZERO) <= 0) {
+                    System.out.println(
+                            "Amount must be greater than zero."
+                    );
+                    continue;
+                }
+
                 if (amount.scale() > 2) {
                     System.out.println(
                             "Please enter an amount with up to 2 decimal places."
@@ -581,13 +925,42 @@ public class TransactionHistory {
                     continue;
                 }
 
-                return amount.setScale(2, RoundingMode.HALF_UP);
+                return amount.setScale(2, RoundingMode.UNNECESSARY);
 
-            } catch (NumberFormatException e) {
+            } catch (NumberFormatException | ArithmeticException e) {
                 System.out.println(
-                        "Invalid amount. Please enter a valid number."
+                        "Invalid amount. Please enter a valid positive number."
                 );
             }
+        }
+    }
+
+    // =========================================================
+    // READ MENU CHOICE
+    // =========================================================
+
+    private int readChoice(int min, int max) {
+
+        while (true) {
+
+            System.out.print("Enter your choice: ");
+            String input = scanner.nextLine().trim();
+
+            try {
+                int choice = Integer.parseInt(input);
+
+                if (choice >= min && choice <= max) {
+                    return choice;
+                }
+
+            } catch (NumberFormatException e) {
+                // Display validation message below.
+            }
+
+            System.out.println(
+                    "Invalid choice. Please enter a number from "
+                    + min + " to " + max + "."
+            );
         }
     }
 
@@ -646,7 +1019,14 @@ public class TransactionHistory {
     private void saveActivityLog(String log) {
 
         try {
-            database.saveActivityLog(log);
+            boolean saved = database.saveActivityLog(log);
+
+            if (!saved) {
+                System.out.println(
+                        "Warning: Transaction succeeded, but the activity log "
+                        + "could not be saved."
+                );
+            }
 
         } catch (RuntimeException e) {
             System.out.println(
