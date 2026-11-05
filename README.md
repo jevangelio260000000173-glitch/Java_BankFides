@@ -12,7 +12,7 @@ A secure and modular Java-based banking management application built for teamwor
 | TransactionHistory.java | KURTNEY LOVE S. GARCES| Transaction Logging and History Statements |
 | AccountManager.java | JOSHUA R. SAGARINO | Customer Account Records and Information |
 | TransactionProtection.java | LEI JIARHDYN G. QUITORAS | Login Security and Transaction Validation |
-| InterestGrowthCalculator.java | LEI JIARHDYN G. QUITORAS | Interest Growth and Yield Calculations |
+| InterestGrowthCalculator.java | LEI JIARHDYN G. QUITORAS | Interest Growth Calculations |
 | RewardsManager.java | ALIXANDREI NIKKOLE T. AGTON | Save-to-Earn Rewards and Milestones |
 
 ## 🚀 How to Collaborate Safely
