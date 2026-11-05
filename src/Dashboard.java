@@ -1,3 +1,4 @@
+
 package src;
 
 import java.util.List;
@@ -8,6 +9,15 @@ public class Dashboard {
     private final Scanner scanner;
     private final FileDatabase database;
 
+    // UI SETTINGS
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     public Dashboard(Scanner scanner) {
         this(scanner, new FileDatabase());
     }
@@ -15,6 +25,41 @@ public class Dashboard {
     public Dashboard(Scanner scanner, FileDatabase database) {
         this.scanner = scanner;
         this.database = database;
+    }
+
+    // =========================================================
+    // UI DISPLAY METHODS
+    // =========================================================
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("              SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
     }
 
     // =========================================================
@@ -40,13 +85,13 @@ public class Dashboard {
                 rewardPoints = (int) latestData[2];
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("              BANCOFIDES DASHBOARD");
-            System.out.println("==================================================");
+            displayScreenHeader("CUSTOMER DASHBOARD");
+
             System.out.println("Welcome, " + fullName + "!");
             System.out.println("Account ID        : " + accountID);
             System.out.println("Username          : " + username);
-            System.out.println("--------------------------------------------------");
+
+            displaySectionHeader("ACCOUNT SUMMARY");
 
             System.out.printf(
                     "Available Balance : PHP %,.2f%n",
@@ -58,9 +103,8 @@ public class Dashboard {
                     totalDeposits
             );
 
-            System.out.println("==================================================");
-            System.out.println("                  CUSTOMER MENU");
-            System.out.println("==================================================");
+            displaySectionHeader("CUSTOMER MENU");
+
             System.out.println("[1] Cash In / Deposit");
             System.out.println("[2] Transactions");
             System.out.println("[3] Interest Growth Calculator");
@@ -69,7 +113,7 @@ public class Dashboard {
             System.out.println("[6] Report Transaction Issue");
             System.out.println("[7] My Issue Reports");
             System.out.println("[8] Logout");
-            System.out.println("==================================================");
+            System.out.println();
 
             choice = readChoice(1, 8);
 
@@ -104,13 +148,12 @@ public class Dashboard {
                     TransactionHistory transactionHistory =
                             new TransactionHistory(scanner, database);
 
-                    System.out.println("\n==================================================");
-                    System.out.println("                  TRANSACTIONS");
-                    System.out.println("==================================================");
+                    displayScreenHeader("TRANSACTIONS");
+
                     System.out.println("[1] Withdraw");
                     System.out.println("[2] Transfer");
                     System.out.println("[3] Return to Dashboard");
-                    System.out.println("==================================================");
+                    System.out.println();
 
                     int transactionChoice = readChoice(1, 3);
 
@@ -196,17 +239,16 @@ public class Dashboard {
 
                 case 8:
 
-                    System.out.println("\n==================================================");
-                    System.out.println("              LOGGING OUT");
-                    System.out.println("==================================================");
+                    displayScreenHeader("CUSTOMER LOGOUT");
+
                     System.out.println(
                             "Thank you for using BancoFides, "
                             + fullName + "!"
                     );
+
                     System.out.println(
                             "You have been logged out successfully."
                     );
-                    System.out.println("==================================================");
 
                     break;
             }
@@ -226,13 +268,12 @@ public class Dashboard {
         int choice;
 
         do {
-            System.out.println("\n==================================================");
-            System.out.println("              ACCOUNT INFORMATION");
-            System.out.println("==================================================");
+            displayScreenHeader("ACCOUNT INFORMATION");
+
             System.out.println("[1] View Account Information");
             System.out.println("[2] Save-to-Earn Rewards");
             System.out.println("[3] Return to Dashboard");
-            System.out.println("==================================================");
+            System.out.println();
 
             choice = readChoice(1, 3);
 
@@ -301,6 +342,7 @@ public class Dashboard {
                     && fields[0].equalsIgnoreCase(accountID)) {
 
                 try {
+
                     double balance =
                             Double.parseDouble(fields[4]);
 
@@ -342,9 +384,8 @@ public class Dashboard {
             double balance,
             double totalDeposits) {
 
-        System.out.println("\n==================================================");
-        System.out.println("               ACCOUNT INFORMATION");
-        System.out.println("==================================================");
+        displayScreenHeader("ACCOUNT INFORMATION DETAILS");
+
         System.out.println("Full Name         : " + fullName);
         System.out.println("Account ID        : " + accountID);
         System.out.println("Username          : " + username);
@@ -363,8 +404,6 @@ public class Dashboard {
                 "Account Status    : "
                 + database.getAccountStatus(accountID)
         );
-
-        System.out.println("==================================================");
 
         pause();
     }
@@ -390,14 +429,12 @@ public class Dashboard {
             int pendingIssues =
                     database.countPendingTransactionIssues();
 
-            System.out.println("\n==================================================");
-            System.out.println("               BANCOFIDES STAFF");
-            System.out.println("==================================================");
+            displayScreenHeader("STAFF DASHBOARD");
+
             System.out.println("Welcome, " + fullName + "!");
             System.out.println("Staff ID: " + staffID);
-            System.out.println("--------------------------------------------------");
-            System.out.println("              STAFF DASHBOARD");
-            System.out.println("--------------------------------------------------");
+
+            displaySectionHeader("STAFF SUMMARY");
 
             System.out.println(
                     "Total Customers       : " + countRecords(customers)
@@ -415,16 +452,15 @@ public class Dashboard {
                     "Pending Issue Reports : " + pendingIssues
             );
 
-            System.out.println("==================================================");
-            System.out.println("                   STAFF MENU");
-            System.out.println("==================================================");
+            displaySectionHeader("STAFF MENU");
+
             System.out.println("[1] Search Customer Account");
             System.out.println("[2] Review Transactions");
             System.out.println("[3] Verify Pending Deposits");
             System.out.println("[4] View Transaction History");
             System.out.println("[5] Report Transaction Issue");
             System.out.println("[6] Logout");
-            System.out.println("==================================================");
+            System.out.println();
 
             choice = readChoice(1, 6);
 
@@ -455,9 +491,7 @@ public class Dashboard {
 
                 case 4: {
 
-                    System.out.println("\n==================================================");
-                    System.out.println("            CUSTOMER TRANSACTION HISTORY");
-                    System.out.println("==================================================");
+                    displayScreenHeader("CUSTOMER TRANSACTION HISTORY");
 
                     System.out.print("Enter Customer ID: ");
                     String customerID = scanner.nextLine().trim();
@@ -489,8 +523,10 @@ public class Dashboard {
 
                 case 6:
 
+                    displayScreenHeader("STAFF LOGOUT");
+
                     System.out.println(
-                            "\nStaff logged out successfully."
+                            "Staff logged out successfully."
                     );
 
                     break;
@@ -517,14 +553,12 @@ public class Dashboard {
             List<String> transactions = database.readTransactions();
             List<String> activityLogs = database.readActivityLogs();
 
-            System.out.println("\n==================================================");
-            System.out.println("              BANCOFIDES ADMIN");
-            System.out.println("==================================================");
+            displayScreenHeader("ADMIN DASHBOARD");
+
             System.out.println("Welcome, " + fullName + "!");
             System.out.println("Admin ID: " + adminID);
-            System.out.println("--------------------------------------------------");
-            System.out.println("              ADMIN DASHBOARD");
-            System.out.println("--------------------------------------------------");
+
+            displaySectionHeader("SYSTEM SUMMARY");
 
             System.out.println(
                     "Total Customers       : " + countRecords(customers)
@@ -542,16 +576,15 @@ public class Dashboard {
                     "Total Activity Logs   : " + countRecords(activityLogs)
             );
 
-            System.out.println("==================================================");
-            System.out.println("                    ADMIN MENU");
-            System.out.println("==================================================");
+            displaySectionHeader("ADMIN MENU");
+
             System.out.println("[1] Manage Customer Accounts");
             System.out.println("[2] Manage Staff Accounts");
             System.out.println("[3] View All Transactions");
             System.out.println("[4] Manage Admin Accounts");
             System.out.println("[5] View Activity Logs");
             System.out.println("[6] Logout");
-            System.out.println("==================================================");
+            System.out.println();
 
             choice = readChoice(1, 6);
 
@@ -602,8 +635,10 @@ public class Dashboard {
                 // LOGOUT
                 case 6:
 
+                    displayScreenHeader("ADMIN LOGOUT");
+
                     System.out.println(
-                            "\nAdmin logged out successfully."
+                            "Admin logged out successfully."
                     );
 
                     break;
@@ -620,9 +655,7 @@ public class Dashboard {
 
         List<String> transactions = database.readTransactions();
 
-        System.out.println("\n==================================================");
-        System.out.println("                 " + title);
-        System.out.println("==================================================");
+        displayScreenHeader(title);
 
         if (transactions == null || transactions.isEmpty()) {
             System.out.println("No transactions found.");
@@ -640,7 +673,7 @@ public class Dashboard {
 
             String[] fields = record.split("\\|", -1);
 
-            System.out.println("------------------------------------------");
+            displaySectionHeader("TRANSACTION " + (count + 1));
 
             if (fields.length >= 8) {
 
@@ -664,9 +697,9 @@ public class Dashboard {
             count++;
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("TRANSACTION SUMMARY");
+
         System.out.println("Total Records: " + count);
-        System.out.println("==================================================");
 
         pause();
     }
@@ -679,9 +712,8 @@ public class Dashboard {
 
         List<String> transactions = database.readTransactions();
 
-        System.out.println("\n==================================================");
-        System.out.println("             TRANSACTION HISTORY");
-        System.out.println("==================================================");
+        displayScreenHeader("TRANSACTION HISTORY");
+
         System.out.println("Customer ID: " + customerID);
 
         int count = 0;
@@ -705,7 +737,7 @@ public class Dashboard {
 
                 if (belongsToCustomer) {
 
-                    System.out.println("------------------------------------------");
+                    displaySectionHeader("TRANSACTION " + (count + 1));
 
                     if (fields.length >= 8) {
 
@@ -736,9 +768,9 @@ public class Dashboard {
             );
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("TRANSACTION SUMMARY");
+
         System.out.println("Total Transactions: " + count);
-        System.out.println("==================================================");
 
         pause();
     }
@@ -780,9 +812,7 @@ public class Dashboard {
 
         List<String> activityLogs = database.readActivityLogs();
 
-        System.out.println("\n==================================================");
-        System.out.println("                  ACTIVITY LOGS");
-        System.out.println("==================================================");
+        displayScreenHeader("ACTIVITY LOGS");
 
         if (activityLogs == null || activityLogs.isEmpty()) {
             System.out.println("No activity logs found.");
@@ -802,9 +832,9 @@ public class Dashboard {
             count++;
         }
 
-        System.out.println("--------------------------------------------------");
+        displaySectionHeader("ACTIVITY SUMMARY");
+
         System.out.println("Total Activity Logs: " + count);
-        System.out.println("==================================================");
 
         pause();
     }
@@ -839,11 +869,16 @@ public class Dashboard {
 
         while (true) {
 
-            System.out.print("Enter your choice: ");
+            System.out.print("\nEnter your choice: ");
+
+            if (!scanner.hasNextLine()) {
+                return max;
+            }
 
             String input = scanner.nextLine().trim();
 
             try {
+
                 int choice = Integer.parseInt(input);
 
                 if (choice >= min && choice <= max) {
@@ -871,6 +906,9 @@ public class Dashboard {
     private void pause() {
 
         System.out.print("\nPress Enter to continue...");
-        scanner.nextLine();
+
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 }

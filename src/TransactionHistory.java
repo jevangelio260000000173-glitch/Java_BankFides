@@ -18,12 +18,20 @@ public class TransactionHistory {
     private final FileDatabase database;
     private final Transaction_Protection security;
 
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // =========================================================
+    // ==========================================
     // CONSTRUCTORS
-    // =========================================================
+    // ==========================================
 
     public TransactionHistory(Scanner scanner) {
         this(scanner, new FileDatabase());
@@ -35,9 +43,43 @@ public class TransactionHistory {
         this.security = new Transaction_Protection(database);
     }
 
-    // =========================================================
+    // ==========================================
+    // SCREEN FORMATTING
+    // ==========================================
+
+    private void screenGap() {
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    // ==========================================
     // WITHDRAWAL
-    // =========================================================
+    // ==========================================
 
     public void withdraw(String accountID) {
 
@@ -70,12 +112,10 @@ public class TransactionHistory {
             return;
         }
 
-        System.out.println("\n==================================================");
-        System.out.println("              CASH OUT / WITHDRAWAL");
-        System.out.println("==================================================");
-        System.out.println("Account ID: " + accountID);
+        displayScreenHeader("CASH OUT / WITHDRAWAL");
+
+        System.out.println("Account ID       : " + accountID);
         System.out.printf("Available Balance: PHP %,.2f%n", balance);
-        System.out.println("--------------------------------------------------");
 
         BigDecimal amount = readAmount("Enter withdrawal amount: PHP ");
 
@@ -93,9 +133,8 @@ public class TransactionHistory {
 
         BigDecimal newBalance = balance.subtract(amount);
 
-        System.out.println("\n------------------------------------------");
-        System.out.println("          WITHDRAWAL DETAILS");
-        System.out.println("------------------------------------------");
+        displaySectionHeader("WITHDRAWAL DETAILS");
+
         System.out.printf("Withdrawal Amount: PHP %,.2f%n", amount);
         System.out.printf("Remaining Balance: PHP %,.2f%n", newBalance);
 
@@ -172,15 +211,14 @@ public class TransactionHistory {
                     "WITHDRAWAL_SUCCESS|" + accountID + "|" + transactionID
             );
 
-            System.out.println("\n==================================================");
-            System.out.println("           WITHDRAWAL SUCCESSFUL!");
-            System.out.println("==================================================");
+            displayScreenHeader("WITHDRAWAL SUCCESSFUL!");
+
             System.out.printf("Previous Balance : PHP %,.2f%n", balance);
             System.out.printf("Withdrawal Amount: PHP %,.2f%n", amount);
             System.out.printf("New Balance      : PHP %,.2f%n", newBalance);
+
             System.out.println("Transaction ID   : " + transactionID);
             System.out.println("Status           : SUCCESSFUL");
-            System.out.println("==================================================");
 
         } catch (NumberFormatException e) {
             showMessage(
@@ -199,9 +237,9 @@ public class TransactionHistory {
         pause();
     }
 
-    // =========================================================
+    // ==========================================
     // TRANSFER
-    // =========================================================
+    // ==========================================
 
     public void transfer(String senderID) {
 
@@ -234,14 +272,12 @@ public class TransactionHistory {
             return;
         }
 
-        System.out.println("\n==================================================");
-        System.out.println("                 TRANSFER FUNDS");
-        System.out.println("==================================================");
-        System.out.println("Sender Account: " + senderID);
-        System.out.printf("Available Balance: PHP %,.2f%n", senderBalance);
-        System.out.println("--------------------------------------------------");
+        displayScreenHeader("TRANSFER FUNDS");
 
-        System.out.print("Enter recipient account ID: ");
+        System.out.println("Sender Account   : " + senderID);
+        System.out.printf("Available Balance: PHP %,.2f%n", senderBalance);
+
+        System.out.print("\nEnter recipient account ID: ");
         String recipientID = scanner.nextLine().trim();
 
         if (recipientID.isEmpty()) {
@@ -294,7 +330,7 @@ public class TransactionHistory {
             return;
         }
 
-        System.out.println("\nRecipient Name: " + recipientName);
+        System.out.println("\nRecipient Name   : " + recipientName);
         System.out.println("Recipient Account: " + recipientID);
 
         BigDecimal amount = readAmount("Enter transfer amount: PHP ");
@@ -314,9 +350,8 @@ public class TransactionHistory {
         BigDecimal senderNewBalance = senderBalance.subtract(amount);
         BigDecimal recipientNewBalance = recipientBalance.add(amount);
 
-        System.out.println("\n------------------------------------------");
-        System.out.println("             TRANSFER DETAILS");
-        System.out.println("------------------------------------------");
+        displaySectionHeader("TRANSFER DETAILS");
+
         System.out.println("Sender Account   : " + senderID);
         System.out.println("Recipient Name   : " + recipientName);
         System.out.println("Recipient Account: " + recipientID);
@@ -425,17 +460,16 @@ public class TransactionHistory {
                     "TRANSFER_SUCCESS|" + senderID + "|" + transactionID
             );
 
-            System.out.println("\n==================================================");
-            System.out.println("             TRANSFER SUCCESSFUL!");
-            System.out.println("==================================================");
+            displayScreenHeader("TRANSFER SUCCESSFUL!");
+
             System.out.println("Sender Account   : " + senderID);
             System.out.println("Recipient Account: " + recipientID);
             System.out.printf("Transfer Amount  : PHP %,.2f%n", amount);
             System.out.printf("Previous Balance : PHP %,.2f%n", senderBalance);
             System.out.printf("New Balance      : PHP %,.2f%n", senderNewBalance);
+
             System.out.println("Transaction ID   : " + transactionID);
             System.out.println("Status           : SUCCESSFUL");
-            System.out.println("==================================================");
 
         } catch (NumberFormatException e) {
             showMessage(
@@ -454,25 +488,26 @@ public class TransactionHistory {
         pause();
     }
 
-    // =========================================================
+    // ==========================================
     // TRANSACTION HISTORY MENU
-    // =========================================================
+    // ==========================================
 
     public void showHistory(String accountID) {
 
         while (true) {
 
-            System.out.println("\n==================================================");
-            System.out.println("               TRANSACTION HISTORY");
-            System.out.println("==================================================");
+            displayScreenHeader("TRANSACTION HISTORY");
+
             System.out.println("Account ID: " + accountID);
-            System.out.println("--------------------------------------------------");
+
+            displaySectionHeader("TRANSACTION OPTIONS");
+
             System.out.println("[1] View All Transactions");
             System.out.println("[2] Filter by Transaction Type");
             System.out.println("[3] Filter by Date");
             System.out.println("[4] View Deposit Request History");
             System.out.println("[5] Return");
-            System.out.println("--------------------------------------------------");
+            System.out.println();
 
             int choice = readChoice(1, 5);
 
@@ -503,20 +538,19 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // FILTER BY TRANSACTION TYPE
-    // =========================================================
+    // ==========================================
 
     private void filterHistoryByType(String accountID) {
 
-        System.out.println("\n------------------------------------------");
-        System.out.println("       FILTER TRANSACTIONS BY TYPE");
-        System.out.println("------------------------------------------");
+        displayScreenHeader("FILTER BY TRANSACTION TYPE");
+
         System.out.println("[1] Deposits");
         System.out.println("[2] Withdrawals");
         System.out.println("[3] Transfers");
         System.out.println("[4] Return");
-        System.out.println("------------------------------------------");
+        System.out.println();
 
         int choice = readChoice(1, 4);
 
@@ -546,11 +580,13 @@ public class TransactionHistory {
         displayHistory(accountID, type, null);
     }
 
-    // =========================================================
+    // ==========================================
     // FILTER BY DATE
-    // =========================================================
+    // ==========================================
 
     private void filterHistoryByDate(String accountID) {
+
+        displayScreenHeader("FILTER BY DATE");
 
         LocalDate selectedDate;
 
@@ -577,18 +613,17 @@ public class TransactionHistory {
         );
     }
 
-    // =========================================================
+    // ==========================================
     // DISPLAY FILTERED TRANSACTION HISTORY
-    // =========================================================
+    // ==========================================
 
     private void displayHistory(
             String accountID,
             String selectedType,
             String selectedDate) {
 
-        System.out.println("\n==================================================");
-        System.out.println("               TRANSACTION HISTORY");
-        System.out.println("==================================================");
+        displayScreenHeader("TRANSACTION HISTORY");
+
         System.out.println("Account ID: " + accountID);
 
         if (!selectedType.equals("ALL")) {
@@ -599,7 +634,7 @@ public class TransactionHistory {
             System.out.println("Date: " + selectedDate);
         }
 
-        System.out.println("--------------------------------------------------");
+        displaySectionHeader("TRANSACTION RECORDS");
 
         List<String> transactions = database.readTransactions();
         boolean found = false;
@@ -647,7 +682,7 @@ public class TransactionHistory {
                     System.out.println("Other Account   : " + fields[8]);
                 }
 
-                System.out.println("--------------------------------------------------");
+                System.out.println(SECTION_LINE);
             }
         }
 
@@ -655,21 +690,20 @@ public class TransactionHistory {
             System.out.println("No matching transactions found.");
         }
 
-        System.out.println("==================================================");
         pause();
     }
 
-    // =========================================================
+    // ==========================================
     // DISPLAY DEPOSIT REQUEST HISTORY
-    // =========================================================
+    // ==========================================
 
     private void displayDepositRequestHistory(String accountID) {
 
-        System.out.println("\n==================================================");
-        System.out.println("             DEPOSIT REQUEST HISTORY");
-        System.out.println("==================================================");
+        displayScreenHeader("DEPOSIT REQUEST HISTORY");
+
         System.out.println("Account ID: " + accountID);
-        System.out.println("--------------------------------------------------");
+
+        displaySectionHeader("DEPOSIT REQUEST RECORDS");
 
         List<String> requests = database.readPendingDeposits();
 
@@ -726,7 +760,7 @@ public class TransactionHistory {
                     System.out.println("Reviewed At     : " + fields[6]);
                 }
 
-                System.out.println("--------------------------------------------------");
+                System.out.println(SECTION_LINE);
             }
         }
 
@@ -734,14 +768,12 @@ public class TransactionHistory {
             System.out.println("You have no deposit requests yet.");
         }
 
-        System.out.println("==================================================");
-
         pause();
     }
 
-    // =========================================================
+    // ==========================================
     // MATCH TRANSACTION TYPE
-    // =========================================================
+    // ==========================================
 
     private boolean matchesType(String transactionType, String selectedType) {
 
@@ -758,9 +790,9 @@ public class TransactionHistory {
         return transactionType.equalsIgnoreCase(selectedType);
     }
 
-    // =========================================================
+    // ==========================================
     // TRANSACTION SECURITY VALIDATION
-    // =========================================================
+    // ==========================================
 
     private boolean validateTransaction(
             String accountID,
@@ -804,9 +836,9 @@ public class TransactionHistory {
         return true;
     }
 
-    // =========================================================
+    // ==========================================
     // FIND CUSTOMER
-    // =========================================================
+    // ==========================================
 
     private String findCustomer(String accountID) {
 
@@ -833,9 +865,9 @@ public class TransactionHistory {
         return null;
     }
 
-    // =========================================================
+    // ==========================================
     // UPDATE CUSTOMER RECORD
-    // =========================================================
+    // ==========================================
 
     private String updateCustomerRecord(
             String[] fields,
@@ -852,9 +884,9 @@ public class TransactionHistory {
                 + rewardPoints;
     }
 
-    // =========================================================
+    // ==========================================
     // GENERATE TRANSACTION ID
-    // =========================================================
+    // ==========================================
 
     private String generateTransactionID() {
 
@@ -897,15 +929,15 @@ public class TransactionHistory {
         return "T" + (highestNumber + 1);
     }
 
-    // =========================================================
+    // ==========================================
     // READ AMOUNT
-    // =========================================================
+    // ==========================================
 
     private BigDecimal readAmount(String message) {
 
         while (true) {
 
-            System.out.print(message);
+            System.out.print("\n" + message);
             String input = scanner.nextLine().trim();
 
             try {
@@ -935,15 +967,20 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // READ MENU CHOICE
-    // =========================================================
+    // ==========================================
 
     private int readChoice(int min, int max) {
 
         while (true) {
 
             System.out.print("Enter your choice: ");
+
+            if (!scanner.hasNextLine()) {
+                return max;
+            }
+
             String input = scanner.nextLine().trim();
 
             try {
@@ -964,9 +1001,9 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // CONFIRM TRANSACTION
-    // =========================================================
+    // ==========================================
 
     private boolean confirmTransaction(String transactionType) {
 
@@ -976,6 +1013,11 @@ public class TransactionHistory {
         while (true) {
 
             System.out.print("Enter your choice: ");
+
+            if (!scanner.hasNextLine()) {
+                return false;
+            }
+
             String input = scanner.nextLine().trim();
 
             if (input.equals("1")) {
@@ -993,9 +1035,9 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // DECODE CUSTOMER NAME
-    // =========================================================
+    // ==========================================
 
     private String decode(String value) {
 
@@ -1012,9 +1054,9 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // SAVE ACTIVITY LOG
-    // =========================================================
+    // ==========================================
 
     private void saveActivityLog(String log) {
 
@@ -1036,17 +1078,15 @@ public class TransactionHistory {
         }
     }
 
-    // =========================================================
+    // ==========================================
     // MESSAGE AND PAUSE
-    // =========================================================
+    // ==========================================
 
     private void showMessage(String title, String message) {
 
-        System.out.println("\n==================================================");
-        System.out.println("               " + title);
-        System.out.println("==================================================");
+        displayScreenHeader(title);
+
         System.out.println(message);
-        System.out.println("==================================================");
 
         pause();
     }
@@ -1054,6 +1094,9 @@ public class TransactionHistory {
     private void pause() {
 
         System.out.print("\nPress Enter to continue...");
-        scanner.nextLine();
+
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 }

@@ -8,6 +8,12 @@ import java.util.Scanner;
 
 public class AccountManager {
 
+    private static final int SCREEN_GAP = 2;
+    private static final String MAIN_LINE =
+            "============================================================";
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private final Scanner scanner;
     private final FileDatabase database;
 
@@ -28,15 +34,16 @@ public class AccountManager {
 
         while (true) {
 
-            System.out.println("\n==================================================");
-            System.out.println("          MANAGE CUSTOMER ACCOUNTS");
-            System.out.println("==================================================");
+            displayScreenHeader("MANAGE CUSTOMER ACCOUNTS");
+
             System.out.println("[1] Search Customer Account");
             System.out.println("[2] View All Customer Accounts");
             System.out.println("[3] Update Customer Information");
             System.out.println("[4] Activate / Deactivate Account");
             System.out.println("[5] Return to Admin Dashboard");
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             int choice = readChoice("Enter your choice: ", 1, 5);
 
@@ -65,9 +72,7 @@ public class AccountManager {
 
     public void searchCustomerAccount() {
 
-        System.out.println("\n==================================================");
-        System.out.println("             SEARCH CUSTOMER ACCOUNT");
-        System.out.println("==================================================");
+        displayScreenHeader("SEARCH CUSTOMER ACCOUNT");
 
         String search = readRequiredInput(
                 "Enter Customer ID or Username: "
@@ -95,9 +100,7 @@ public class AccountManager {
 
     public void viewAllCustomerAccounts() {
 
-        System.out.println("\n==================================================");
-        System.out.println("              ALL CUSTOMER ACCOUNTS");
-        System.out.println("==================================================");
+        displayScreenHeader("ALL CUSTOMER ACCOUNTS");
 
         List<String> records = database.readCustomers();
 
@@ -127,7 +130,8 @@ public class AccountManager {
                 String username = decode(fields[2]);
                 String status = database.getAccountStatus(fields[0]);
 
-                System.out.println("------------------------------------------");
+                displaySectionHeader("CUSTOMER ACCOUNT");
+
                 System.out.println("Customer ID : " + fields[0]);
                 System.out.println("Full Name   : " + fullName);
                 System.out.println("Username    : " + username);
@@ -137,15 +141,16 @@ public class AccountManager {
                 count++;
 
             } catch (IllegalArgumentException e) {
+
                 System.out.println(
                         "Warning: An unreadable customer record was skipped."
                 );
             }
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("ACCOUNT SUMMARY");
         System.out.println("Total Customers: " + count);
-        System.out.println("==================================================");
+        System.out.println(MAIN_LINE);
 
         pause();
     }
@@ -156,9 +161,7 @@ public class AccountManager {
 
     public void updateCustomerInformation() {
 
-        System.out.println("\n==================================================");
-        System.out.println("           UPDATE CUSTOMER INFORMATION");
-        System.out.println("==================================================");
+        displayScreenHeader("UPDATE CUSTOMER INFORMATION");
 
         String accountID = readRequiredInput("Enter Customer ID: ");
 
@@ -181,13 +184,13 @@ public class AccountManager {
             String oldName = decode(fields[1]);
             String oldUsername = decode(fields[2]);
 
-            System.out.println("\nCurrent Customer Information");
-            System.out.println("------------------------------------------");
+            displaySectionHeader("CURRENT CUSTOMER INFORMATION");
+
             System.out.println("Customer ID : " + fields[0]);
             System.out.println("Full Name   : " + oldName);
             System.out.println("Username    : " + oldUsername);
-            System.out.println("------------------------------------------");
 
+            System.out.println();
             System.out.println(
                     "Leave a field blank to keep its current value."
             );
@@ -235,18 +238,17 @@ public class AccountManager {
                 return;
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("             CONFIRM INFORMATION");
-            System.out.println("==================================================");
+            displaySectionHeader("CONFIRM INFORMATION");
+
             System.out.println("Customer ID : " + accountID);
             System.out.println("Old Name    : " + oldName);
             System.out.println("New Name    : " + newName);
             System.out.println("Old Username: " + oldUsername);
             System.out.println("New Username: " + newUsername);
-            System.out.println("==================================================");
+
+            System.out.println();
             System.out.println("[1] Confirm Update");
             System.out.println("[2] Cancel");
-            System.out.println("==================================================");
 
             int choice = readChoice("Enter your choice: ", 1, 2);
 
@@ -307,9 +309,7 @@ public class AccountManager {
 
     public void changeCustomerAccountStatus() {
 
-        System.out.println("\n==================================================");
-        System.out.println("          CHANGE CUSTOMER ACCOUNT STATUS");
-        System.out.println("==================================================");
+        displayScreenHeader("CHANGE CUSTOMER ACCOUNT STATUS");
 
         String accountID = readRequiredInput("Enter Customer ID: ");
 
@@ -327,9 +327,9 @@ public class AccountManager {
 
         String currentStatus = database.getAccountStatus(accountID);
 
-        System.out.println("\nCustomer ID : " + accountID);
-        System.out.println("Full Name   : " + decodeCustomerName(record));
-        System.out.println("Current Status: " + currentStatus);
+        System.out.println("\nCustomer ID    : " + accountID);
+        System.out.println("Full Name      : " + decodeCustomerName(record));
+        System.out.println("Current Status : " + currentStatus);
 
         if ("ACTIVE".equals(currentStatus)) {
             System.out.println("\n[1] Deactivate Account");
@@ -351,8 +351,11 @@ public class AccountManager {
                 ? "INACTIVE"
                 : "ACTIVE";
 
-        System.out.println("\nAre you sure you want to change");
+        displaySectionHeader("CONFIRM ACCOUNT STATUS CHANGE");
+
+        System.out.println("Are you sure you want to change");
         System.out.println("the account status to " + newStatus + "?");
+        System.out.println();
         System.out.println("[1] Confirm");
         System.out.println("[2] Cancel");
 
@@ -391,13 +394,14 @@ public class AccountManager {
 
         while (true) {
 
-            System.out.println("\n==================================================");
-            System.out.println("          CUSTOMER ACCOUNT SEARCH");
-            System.out.println("==================================================");
+            displayScreenHeader("CUSTOMER ACCOUNT SEARCH");
+
             System.out.println("[1] Search Customer Account");
             System.out.println("[2] View All Customer Accounts");
             System.out.println("[3] Return");
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             int choice = readChoice("Enter your choice: ", 1, 3);
 
@@ -422,16 +426,17 @@ public class AccountManager {
 
         while (true) {
 
-            System.out.println("\n==================================================");
-            System.out.println("             MANAGE ADMIN ACCOUNTS");
-            System.out.println("==================================================");
+            displayScreenHeader("MANAGE ADMIN ACCOUNTS");
+
             System.out.println("[1] Create Admin Account");
             System.out.println("[2] Search Admin Account");
             System.out.println("[3] View All Admin Accounts");
             System.out.println("[4] Update Admin Information");
             System.out.println("[5] Activate / Deactivate Admin Account");
             System.out.println("[6] Return to Admin Dashboard");
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             int choice = readChoice("Enter your choice: ", 1, 6);
 
@@ -463,9 +468,7 @@ public class AccountManager {
 
     private void createAdminAccount() {
 
-        System.out.println("\n==================================================");
-        System.out.println("               CREATE ADMIN ACCOUNT");
-        System.out.println("==================================================");
+        displayScreenHeader("CREATE ADMIN ACCOUNT");
 
         /*
          * UserAuthentication handles Admin registration,
@@ -486,9 +489,7 @@ public class AccountManager {
 
     public void searchAdminAccount() {
 
-        System.out.println("\n==================================================");
-        System.out.println("               SEARCH ADMIN ACCOUNT");
-        System.out.println("==================================================");
+        displayScreenHeader("SEARCH ADMIN ACCOUNT");
 
         String search = readRequiredInput(
                 "Enter Admin ID or Username: "
@@ -516,9 +517,7 @@ public class AccountManager {
 
     public void viewAllAdminAccounts() {
 
-        System.out.println("\n==================================================");
-        System.out.println("                ALL ADMIN ACCOUNTS");
-        System.out.println("==================================================");
+        displayScreenHeader("ALL ADMIN ACCOUNTS");
 
         List<String> records = database.readAdmins();
 
@@ -549,7 +548,8 @@ public class AccountManager {
                 String username = decode(fields[2]);
                 String status = database.getAccountStatus(adminID);
 
-                System.out.println("------------------------------------------");
+                displaySectionHeader("ADMIN ACCOUNT");
+
                 System.out.println("Admin ID  : " + adminID);
                 System.out.println("Full Name : " + fullName);
                 System.out.println("Username  : " + username);
@@ -565,9 +565,9 @@ public class AccountManager {
             }
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("ACCOUNT SUMMARY");
         System.out.println("Total Admin Accounts: " + count);
-        System.out.println("==================================================");
+        System.out.println(MAIN_LINE);
 
         pause();
     }
@@ -578,9 +578,7 @@ public class AccountManager {
 
     public void updateAdminInformation() {
 
-        System.out.println("\n==================================================");
-        System.out.println("             UPDATE ADMIN INFORMATION");
-        System.out.println("==================================================");
+        displayScreenHeader("UPDATE ADMIN INFORMATION");
 
         String adminID = readRequiredInput("Enter Admin ID: ");
 
@@ -604,13 +602,13 @@ public class AccountManager {
             String oldName = decode(fields[1]);
             String oldUsername = decode(fields[2]);
 
-            System.out.println("\nCurrent Admin Information");
-            System.out.println("------------------------------------------");
+            displaySectionHeader("CURRENT ADMIN INFORMATION");
+
             System.out.println("Admin ID  : " + actualAdminID);
             System.out.println("Full Name : " + oldName);
             System.out.println("Username  : " + oldUsername);
-            System.out.println("------------------------------------------");
 
+            System.out.println();
             System.out.println(
                     "Leave a field blank to keep its current value."
             );
@@ -658,18 +656,17 @@ public class AccountManager {
                 return;
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("             CONFIRM ADMIN UPDATE");
-            System.out.println("==================================================");
-            System.out.println("Admin ID   : " + actualAdminID);
-            System.out.println("Old Name   : " + oldName);
-            System.out.println("New Name   : " + newName);
+            displaySectionHeader("CONFIRM ADMIN UPDATE");
+
+            System.out.println("Admin ID    : " + actualAdminID);
+            System.out.println("Old Name    : " + oldName);
+            System.out.println("New Name    : " + newName);
             System.out.println("Old Username: " + oldUsername);
             System.out.println("New Username: " + newUsername);
-            System.out.println("==================================================");
+
+            System.out.println();
             System.out.println("[1] Confirm Update");
             System.out.println("[2] Cancel");
-            System.out.println("==================================================");
 
             int choice = readChoice("Enter your choice: ", 1, 2);
 
@@ -730,9 +727,7 @@ public class AccountManager {
 
     public void changeAdminAccountStatus() {
 
-        System.out.println("\n==================================================");
-        System.out.println("          CHANGE ADMIN ACCOUNT STATUS");
-        System.out.println("==================================================");
+        displayScreenHeader("CHANGE ADMIN ACCOUNT STATUS");
 
         String adminID = readRequiredInput("Enter Admin ID: ");
 
@@ -795,8 +790,11 @@ public class AccountManager {
                 return;
             }
 
-            System.out.println("\nAre you sure you want to change");
+            displaySectionHeader("CONFIRM STATUS CHANGE");
+
+            System.out.println("Are you sure you want to change");
             System.out.println("the Admin status to " + newStatus + "?");
+            System.out.println();
             System.out.println("[1] Confirm");
             System.out.println("[2] Cancel");
 
@@ -939,15 +937,15 @@ public class AccountManager {
 
             String adminID = decodeIdentifier(fields[0]);
 
-            System.out.println("\n==================================================");
-            System.out.println("              ADMIN ACCOUNT DETAILS");
-            System.out.println("==================================================");
+            displaySectionHeader("ADMIN ACCOUNT DETAILS");
+
             System.out.println("Admin ID      : " + adminID);
             System.out.println("Full Name     : " + decode(fields[1]));
             System.out.println("Username      : " + decode(fields[2]));
             System.out.println("Account Status: "
                     + database.getAccountStatus(adminID));
-            System.out.println("==================================================");
+
+            System.out.println(MAIN_LINE);
 
         } catch (IllegalArgumentException e) {
 
@@ -1096,9 +1094,8 @@ public class AccountManager {
 
         try {
 
-            System.out.println("\n==================================================");
-            System.out.println("            CUSTOMER ACCOUNT DETAILS");
-            System.out.println("==================================================");
+            displaySectionHeader("CUSTOMER ACCOUNT DETAILS");
+
             System.out.println("Customer ID   : " + fields[0]);
             System.out.println("Full Name     : " + decode(fields[1]));
             System.out.println("Username      : " + decode(fields[2]));
@@ -1107,7 +1104,8 @@ public class AccountManager {
             System.out.println("Reward Points : " + fields[6]);
             System.out.println("Account Status: "
                     + database.getAccountStatus(fields[0]));
-            System.out.println("==================================================");
+
+            System.out.println(MAIN_LINE);
 
         } catch (IllegalArgumentException e) {
 
@@ -1359,6 +1357,41 @@ public class AccountManager {
             System.out.println(
                     "Warning: Activity could not be recorded."
             );
+        }
+    }
+
+    // =========================================================
+    // SCREEN DISPLAY METHODS
+    // =========================================================
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
         }
     }
 

@@ -5,6 +5,12 @@ import java.util.Scanner;
 
 public class InterestGrowthCalculator {
 
+    private static final int SCREEN_GAP = 2;
+    private static final String MAIN_LINE =
+            "============================================================";
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private final Scanner scanner;
 
     public InterestGrowthCalculator(Scanner scanner) {
@@ -15,18 +21,18 @@ public class InterestGrowthCalculator {
 
         char again;
 
-        System.out.println("\n==============================================");
-        System.out.println("          INTEREST GROWTH CALCULATOR");
-        System.out.println("==============================================");
+        displayScreenHeader("INTEREST GROWTH CALCULATOR");
 
         do {
             double principal, rate, interest, finalSavings;
             double duration;
             String unit;
 
+            displaySectionHeader("SAVINGS INFORMATION");
+
             // Input initial savings
             while (true) {
-                System.out.print("\nEnter initial savings: PHP ");
+                System.out.print("Enter initial savings: PHP ");
 
                 if (scanner.hasNextDouble()) {
                     principal = scanner.nextDouble();
@@ -35,11 +41,14 @@ public class InterestGrowthCalculator {
                         break;
                     }
                 } else {
+                    if (!scanner.hasNextLine()) {
+                        return;
+                    }
                     scanner.next();
                 }
 
                 System.out.println(
-                    "Invalid input! Savings must be greater than zero."
+                        "Invalid input! Savings must be greater than zero."
                 );
             }
 
@@ -54,11 +63,14 @@ public class InterestGrowthCalculator {
                         break;
                     }
                 } else {
+                    if (!scanner.hasNextLine()) {
+                        return;
+                    }
                     scanner.next();
                 }
 
                 System.out.println(
-                    "Invalid input! Rate cannot be negative."
+                        "Invalid input! Rate cannot be negative."
                 );
             }
 
@@ -73,17 +85,25 @@ public class InterestGrowthCalculator {
                         break;
                     }
                 } else {
+                    if (!scanner.hasNextLine()) {
+                        return;
+                    }
                     scanner.next();
                 }
 
                 System.out.println(
-                    "Invalid input! Duration must be greater than zero."
+                        "Invalid input! Duration must be greater than zero."
                 );
             }
 
             // Input duration unit
             while (true) {
                 System.out.print("Enter unit (months/years): ");
+
+                if (!scanner.hasNext()) {
+                    return;
+                }
+
                 unit = scanner.next().toLowerCase();
 
                 if (unit.equals("month") || unit.equals("months")
@@ -92,7 +112,7 @@ public class InterestGrowthCalculator {
                 }
 
                 System.out.println(
-                    "Invalid unit! Please enter months or years."
+                        "Invalid unit! Please enter months or years."
                 );
             }
 
@@ -112,9 +132,7 @@ public class InterestGrowthCalculator {
             finalSavings = principal + interest;
 
             // Display results
-            System.out.println("\n==============================================");
-            System.out.println("             CALCULATION RESULTS");
-            System.out.println("==============================================");
+            displaySectionHeader("CALCULATION RESULTS");
 
             System.out.printf("Initial Savings       : PHP %.2f%n", principal);
             System.out.printf("Annual Interest Rate  : %.2f%%%n", rate);
@@ -122,11 +140,17 @@ public class InterestGrowthCalculator {
             System.out.printf("Interest Earned       : PHP %.2f%n", interest);
             System.out.printf("Final Savings         : PHP %.2f%n", finalSavings);
 
-            System.out.println("==============================================");
+            System.out.println();
+            System.out.println(SECTION_LINE);
 
             // Ask for another calculation
             while (true) {
                 System.out.print("\nPerform another calculation? (Y/N): ");
+
+                if (!scanner.hasNext()) {
+                    return;
+                }
+
                 String choice = scanner.next().trim();
 
                 if (choice.equalsIgnoreCase("Y")
@@ -138,8 +162,42 @@ public class InterestGrowthCalculator {
                 System.out.println("Invalid choice! Enter Y or N.");
             }
 
+            if (again == 'Y' || again == 'y') {
+                screenGap();
+            }
+
         } while (again == 'Y' || again == 'y');
 
-        System.out.println("\nThank you for using the Interest Growth Calculator!");
+        System.out.println();
+        System.out.println("Thank you for using the Interest Growth Calculator!");
+        System.out.println();
+
+    }
+
+    private void displayScreenHeader(String title) {
+        screenGap();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    private void screenGap() {
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
     }
 }

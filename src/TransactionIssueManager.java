@@ -1,4 +1,3 @@
-
 package src;
 
 import java.nio.charset.StandardCharsets;
@@ -13,6 +12,14 @@ public class TransactionIssueManager {
     private final Scanner scanner;
     private final FileDatabase database;
 
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -26,7 +33,14 @@ public class TransactionIssueManager {
         "Other"
     };
 
-    public TransactionIssueManager(Scanner scanner, FileDatabase database) {
+    // ==========================================
+    // CONSTRUCTOR
+    // ==========================================
+
+    public TransactionIssueManager(
+            Scanner scanner,
+            FileDatabase database) {
+
         this.scanner = scanner;
         this.database = database;
     }
@@ -37,15 +51,12 @@ public class TransactionIssueManager {
 
     public void reportIssue(String accountID) {
 
-        System.out.println("\n==========================================");
-        System.out.println("          REPORT TRANSACTION ISSUE");
-        System.out.println("==========================================");
+        displayScreenHeader("REPORT TRANSACTION ISSUE");
 
         List<String> transactions = database.readTransactions();
         int transactionCount = 0;
 
-        System.out.println("\nYOUR SUCCESSFUL TRANSACTIONS");
-        System.out.println("------------------------------------------");
+        displaySectionHeader("YOUR SUCCESSFUL TRANSACTIONS");
 
         for (String record : transactions) {
 
@@ -71,26 +82,35 @@ public class TransactionIssueManager {
                     System.out.println("    Other Account: " + fields[8]);
                 }
 
-                System.out.println("------------------------------------------");
+                System.out.println(SECTION_LINE);
             }
         }
 
         if (transactionCount == 0) {
-            System.out.println("No successful transactions found.");
+
+            System.out.println(
+                    "No successful transactions found."
+            );
+
             pause();
             return;
         }
 
-        System.out.print("\nEnter the transaction number to report (0 to cancel): ");
+        System.out.println();
+        System.out.print(
+                "Enter transaction number to report (0 to cancel): "
+        );
 
         int selectedNumber = readInteger();
 
         if (selectedNumber == 0) {
+
             System.out.println("Report cancelled.");
             return;
         }
 
         if (selectedNumber < 1 || selectedNumber > transactionCount) {
+
             System.out.println("Invalid transaction selection.");
             return;
         }
@@ -119,47 +139,61 @@ public class TransactionIssueManager {
         }
 
         if (selectedTransactionID.isEmpty()) {
-            System.out.println("Unable to find the selected transaction.");
+
+            System.out.println(
+                    "Unable to find the selected transaction."
+            );
+
             return;
         }
 
-        // Select issue type
-        System.out.println("\nSELECT ISSUE TYPE");
-        System.out.println("------------------------------------------");
+        // SELECT ISSUE TYPE
+
+        displaySectionHeader("SELECT ISSUE TYPE");
 
         for (int i = 0; i < ISSUE_TYPES.length; i++) {
             System.out.println("[" + (i + 1) + "] " + ISSUE_TYPES[i]);
         }
 
-        System.out.print("\nEnter issue type: ");
+        System.out.println();
+        System.out.print("Enter issue type: ");
+
         int issueChoice = readInteger();
 
         if (issueChoice < 1 || issueChoice > ISSUE_TYPES.length) {
+
             System.out.println("Invalid issue type.");
             return;
         }
 
         String issueType = ISSUE_TYPES[issueChoice - 1];
 
-        // Enter description
-        System.out.println("\nDESCRIBE THE ISSUE");
-        System.out.println("------------------------------------------");
-        System.out.println("Explain what happened with your transaction.");
+        // ENTER DESCRIPTION
+
+        displaySectionHeader("DESCRIBE THE ISSUE");
+
+        System.out.println(
+                "Explain what happened with your transaction."
+        );
 
         System.out.print("Description: ");
+
         String description = scanner.nextLine().trim();
 
         if (description.isEmpty()) {
+
             System.out.println("Description cannot be empty.");
             return;
         }
 
-        // Encode description
+        // ENCODE DESCRIPTION
+
         String encodedDescription = Base64.getEncoder().encodeToString(
                 description.getBytes(StandardCharsets.UTF_8)
         );
 
-        // Generate unique report ID
+        // GENERATE UNIQUE REPORT ID
+
         String reportID;
 
         do {
@@ -179,21 +213,33 @@ public class TransactionIssueManager {
 
         if (database.saveTransactionIssue(record)) {
 
-            System.out.println("\n==========================================");
-            System.out.println("       ISSUE REPORT SUBMITTED");
-            System.out.println("==========================================");
-            System.out.println("Report ID: " + reportID);
-            System.out.println("Transaction ID: " + selectedTransactionID);
-            System.out.println("Issue Type: " + issueType);
-            System.out.println("Status: PENDING");
-            System.out.println("Submitted At: " + submittedAt);
-            System.out.println("------------------------------------------");
-            System.out.println("Your report has been submitted successfully.");
-            System.out.println("Please keep your Report ID for reference.");
+            displayScreenHeader("ISSUE REPORT SUBMITTED");
+
+            System.out.println("Report ID       : " + reportID);
+            System.out.println("Transaction ID  : " + selectedTransactionID);
+            System.out.println("Issue Type      : " + issueType);
+            System.out.println("Status          : PENDING");
+            System.out.println("Submitted At    : " + submittedAt);
+
+            displaySectionHeader("SUBMISSION CONFIRMATION");
+
+            System.out.println(
+                    "Your report has been submitted successfully."
+            );
+
+            System.out.println(
+                    "Please keep your Report ID for reference."
+            );
 
         } else {
-            System.out.println("\nUnable to submit your issue report.");
-            System.out.println("Please verify your account and transaction.");
+
+            showMessage(
+                    "SUBMISSION FAILED",
+                    "Unable to submit your issue report.\n"
+                    + "Please verify your account and transaction."
+            );
+
+            return;
         }
 
         pause();
@@ -205,14 +251,16 @@ public class TransactionIssueManager {
 
     public void viewMyIssueReports(String accountID) {
 
+        displayScreenHeader("MY ISSUE REPORTS");
+
         List<String> reports = database.readTransactionIssues();
 
-        System.out.println("\n==================================================");
-        System.out.println("                 MY ISSUE REPORTS");
-        System.out.println("==================================================");
-
         if (reports == null || reports.isEmpty()) {
-            System.out.println("You have not submitted any issue reports.");
+
+            System.out.println(
+                    "You have not submitted any issue reports."
+            );
+
             pause();
             return;
         }
@@ -238,9 +286,7 @@ public class TransactionIssueManager {
 
             count++;
 
-            System.out.println("\n------------------------------------------");
-            System.out.println("REPORT #" + count);
-            System.out.println("------------------------------------------");
+            displaySectionHeader("REPORT #" + count);
 
             System.out.println("Report ID       : " + fields[0]);
             System.out.println("Transaction ID  : " + fields[2]);
@@ -262,17 +308,21 @@ public class TransactionIssueManager {
             } else {
                 System.out.println("Staff Note      : No staff update yet.");
             }
-
-            System.out.println("------------------------------------------");
         }
 
         if (count == 0) {
-            System.out.println("You have not submitted any issue reports.");
+
+            System.out.println(
+                    "You have not submitted any issue reports."
+            );
+
         } else {
-            System.out.println("\nTotal Issue Reports: " + count);
+
+            System.out.println();
+            System.out.println("Total Issue Reports: " + count);
         }
 
-        System.out.println("==================================================");
+        System.out.println(MAIN_LINE);
 
         pause();
     }
@@ -312,20 +362,23 @@ public class TransactionIssueManager {
 
         while (running) {
 
-            System.out.println("\n==========================================");
-            System.out.println("       TRANSACTION ISSUE MANAGEMENT");
-            System.out.println("==========================================");
+            displayScreenHeader("TRANSACTION ISSUE MANAGEMENT");
 
-            System.out.println("Pending Reports: "
-                    + database.countPendingTransactionIssues());
+            System.out.println("Staff ID: " + staffID);
+            System.out.println(
+                    "Pending Reports: "
+                    + database.countPendingTransactionIssues()
+            );
 
-            System.out.println("------------------------------------------");
+            displaySectionHeader("ISSUE REPORT OPTIONS");
+
             System.out.println("[1] View Pending Reports");
             System.out.println("[2] View All Reports");
             System.out.println("[3] Return to Dashboard");
-            System.out.println("------------------------------------------");
 
+            System.out.println();
             System.out.print("Enter choice: ");
+
             int choice = readInteger();
 
             switch (choice) {
@@ -343,7 +396,10 @@ public class TransactionIssueManager {
                     break;
 
                 default:
-                    System.out.println("Invalid choice. Please try again.");
+                    System.out.println(
+                            "Invalid choice. Please try again."
+                    );
+                    pause();
             }
         }
     }
@@ -356,19 +412,19 @@ public class TransactionIssueManager {
 
         List<String> reports = database.readTransactionIssues();
 
-        System.out.println("\n==========================================");
-
         if (pendingOnly) {
-            System.out.println("             PENDING REPORTS");
+            displayScreenHeader("PENDING REPORTS");
         } else {
-            System.out.println("               ALL REPORTS");
+            displayScreenHeader("ALL ISSUE REPORTS");
         }
-
-        System.out.println("==========================================");
 
         int count = 0;
 
         for (String record : reports) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
 
             String[] fields = record.split("\\|", -1);
 
@@ -390,15 +446,20 @@ public class TransactionIssueManager {
             System.out.println("    Issue Type: " + fields[3]);
             System.out.println("    Status: " + status);
             System.out.println("    Submitted At: " + fields[6]);
-            System.out.println("------------------------------------------");
+            System.out.println(SECTION_LINE);
         }
 
         if (count == 0) {
+
             System.out.println("No reports found.");
+            pause();
             return;
         }
 
-        System.out.print("\nEnter report number to review (0 to return): ");
+        System.out.println();
+        System.out.print(
+                "Enter report number to review (0 to return): "
+        );
 
         int selectedNumber = readInteger();
 
@@ -407,7 +468,9 @@ public class TransactionIssueManager {
         }
 
         if (selectedNumber < 1 || selectedNumber > count) {
+
             System.out.println("Invalid report selection.");
+            pause();
             return;
         }
 
@@ -415,6 +478,10 @@ public class TransactionIssueManager {
         int currentNumber = 0;
 
         for (String record : reports) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
 
             String[] fields = record.split("\\|", -1);
 
@@ -448,7 +515,12 @@ public class TransactionIssueManager {
         String[] fields = record.split("\\|", -1);
 
         if (fields.length < 10) {
-            System.out.println("Invalid report record.");
+
+            showMessage(
+                    "INVALID REPORT",
+                    "The issue report record is invalid."
+            );
+
             return;
         }
 
@@ -457,46 +529,46 @@ public class TransactionIssueManager {
         String status = fields[5];
         String staffNote = decodeText(fields[9]);
 
-        System.out.println("\n==========================================");
-        System.out.println("             REPORT DETAILS");
-        System.out.println("==========================================");
+        displayScreenHeader("REPORT DETAILS");
 
-        System.out.println("Report ID: " + reportID);
-        System.out.println("Account ID: " + fields[1]);
-        System.out.println("Transaction ID: " + fields[2]);
-        System.out.println("Issue Type: " + fields[3]);
-        System.out.println("Description: " + description);
-        System.out.println("Status: " + status);
-        System.out.println("Submitted At: " + fields[6]);
+        System.out.println("Report ID       : " + reportID);
+        System.out.println("Account ID      : " + fields[1]);
+        System.out.println("Transaction ID  : " + fields[2]);
+        System.out.println("Issue Type      : " + fields[3]);
+        System.out.println("Description     : " + description);
+        System.out.println("Status          : " + status);
+        System.out.println("Submitted At    : " + fields[6]);
 
         if (!fields[7].isEmpty()) {
-            System.out.println("Reviewed By: " + fields[7]);
+            System.out.println("Reviewed By     : " + fields[7]);
         }
 
         if (!fields[8].isEmpty()) {
-            System.out.println("Reviewed At: " + fields[8]);
+            System.out.println("Reviewed At     : " + fields[8]);
         }
 
         if (!staffNote.isEmpty()) {
-            System.out.println("Staff Note: " + staffNote);
+            System.out.println("Staff Note      : " + staffNote);
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("UPDATE REPORT STATUS");
 
         if (status.equalsIgnoreCase("RESOLVED")
                 || status.equalsIgnoreCase("REJECTED")) {
 
             System.out.println("This report has already been closed.");
+            pause();
             return;
         }
 
-        System.out.println("\nUPDATE REPORT STATUS");
         System.out.println("[1] Under Review");
         System.out.println("[2] Resolved");
         System.out.println("[3] Rejected");
         System.out.println("[4] Return");
 
+        System.out.println();
         System.out.print("Enter choice: ");
+
         int choice = readInteger();
 
         String newStatus;
@@ -520,14 +592,19 @@ public class TransactionIssueManager {
 
             default:
                 System.out.println("Invalid choice.");
+                pause();
                 return;
         }
 
-        System.out.print("\nEnter staff note: ");
+        System.out.println();
+        System.out.print("Enter staff note: ");
+
         String newStaffNote = scanner.nextLine().trim();
 
         if (newStaffNote.isEmpty()) {
+
             System.out.println("Please provide a staff note.");
+            pause();
             return;
         }
 
@@ -546,12 +623,26 @@ public class TransactionIssueManager {
         );
 
         if (updated) {
-            System.out.println("\nReport updated successfully.");
-            System.out.println("New Status: " + newStatus);
+
+            displayScreenHeader("REPORT UPDATED");
+
+            System.out.println("Report ID  : " + reportID);
+            System.out.println("New Status : " + newStatus);
+            System.out.println("Reviewed By: " + staffID);
+            System.out.println("Reviewed At: " + reviewedAt);
+
         } else {
-            System.out.println("\nUnable to update the report.");
-            System.out.println("Please check the report and staff account.");
+
+            showMessage(
+                    "UPDATE FAILED",
+                    "Unable to update the report.\n"
+                    + "Please check the report and staff account."
+            );
+
+            return;
         }
+
+        pause();
     }
 
     // =========================================================
@@ -559,6 +650,10 @@ public class TransactionIssueManager {
     // =========================================================
 
     private int readInteger() {
+
+        if (!scanner.hasNextLine()) {
+            return -1;
+        }
 
         String input = scanner.nextLine().trim();
 
@@ -574,6 +669,10 @@ public class TransactionIssueManager {
         List<String> reports = database.readTransactionIssues();
 
         for (String record : reports) {
+
+            if (record == null || record.trim().isEmpty()) {
+                continue;
+            }
 
             String[] fields = record.split("\\|", -1);
 
@@ -592,10 +691,74 @@ public class TransactionIssueManager {
         }
 
         try {
+
             byte[] decoded = Base64.getDecoder().decode(encodedText);
-            return new String(decoded, StandardCharsets.UTF_8);
+
+            return new String(
+                    decoded,
+                    StandardCharsets.UTF_8
+            );
+
         } catch (IllegalArgumentException e) {
+
             return "[Unable to decode text]";
+        }
+    }
+
+    // =========================================================
+    // DISPLAY SCREEN HEADER
+    // =========================================================
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    // =========================================================
+    // DISPLAY SECTION HEADER
+    // =========================================================
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    // =========================================================
+    // DISPLAY MESSAGE
+    // =========================================================
+
+    private void showMessage(String title, String message) {
+
+        displayScreenHeader(title);
+
+        System.out.println(message);
+        System.out.println(MAIN_LINE);
+
+        pause();
+    }
+
+    // =========================================================
+    // SCREEN GAP
+    // =========================================================
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
         }
     }
 
@@ -606,6 +769,9 @@ public class TransactionIssueManager {
     private void pause() {
 
         System.out.print("\nPress Enter to continue...");
-        scanner.nextLine();
+
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 }

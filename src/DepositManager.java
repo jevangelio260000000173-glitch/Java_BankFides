@@ -16,6 +16,14 @@ public class DepositManager {
     private final FileDatabase database;
     private final Transaction_Protection security;
 
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -31,6 +39,40 @@ public class DepositManager {
         this.scanner = scanner;
         this.database = database;
         this.security = new Transaction_Protection(database);
+    }
+
+    // ==========================================
+    // SCREEN FORMATTING
+    // ==========================================
+
+    private void screenGap() {
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
     }
 
     // ==========================================
@@ -91,9 +133,8 @@ public class DepositManager {
 
         // DISPLAY ACCOUNT INFORMATION
 
-        System.out.println("\n==========================================");
-        System.out.println("              CASH IN / DEPOSIT");
-        System.out.println("==========================================");
+        displayScreenHeader("CASH IN / DEPOSIT");
+
         System.out.println("Account Name    : " + fullName);
         System.out.println("Account ID      : " + accountID);
 
@@ -109,6 +150,10 @@ public class DepositManager {
         while (true) {
 
             System.out.print("\nEnter deposit amount: PHP ");
+
+            if (!scanner.hasNextLine()) {
+                return null;
+            }
 
             String input = scanner.nextLine().trim();
 
@@ -175,9 +220,8 @@ public class DepositManager {
 
         // STEP 4: DEPOSIT REQUEST CONFIRMATION
 
-        System.out.println("\n==========================================");
-        System.out.println("             DEPOSIT REQUEST");
-        System.out.println("==========================================");
+        displayScreenHeader("DEPOSIT REQUEST");
+
         System.out.println("Account Name    : " + fullName);
         System.out.println("Account ID      : " + accountID);
 
@@ -196,20 +240,25 @@ public class DepositManager {
                 expectedBalance
         );
 
-        System.out.println("------------------------------------------");
-        System.out.println("Important:");
+        displaySectionHeader("IMPORTANT");
+
         System.out.println("Your balance will NOT change immediately.");
         System.out.println("The deposit must first be reviewed by staff.");
-        System.out.println("==========================================");
+
+        System.out.println();
         System.out.println("[1] Submit Deposit Request");
         System.out.println("[2] Cancel Request");
-        System.out.println("==========================================");
+        System.out.println();
 
         int choice = readChoice(1, 2);
 
         if (choice == 2) {
-            System.out.println("\nDeposit request cancelled.");
+
+            displayScreenHeader("REQUEST CANCELLED");
+
+            System.out.println("Deposit request cancelled.");
             System.out.println("No changes were made to your account.");
+
             pause();
             return null;
         }
@@ -347,9 +396,8 @@ public class DepositManager {
 
             // STEP 9: DISPLAY SUBMISSION CONFIRMATION
 
-            System.out.println("\n==========================================");
-            System.out.println("       DEPOSIT REQUEST SUBMITTED!");
-            System.out.println("==========================================");
+            displayScreenHeader("DEPOSIT REQUEST SUBMITTED!");
+
             System.out.println("Account Name    : " + fullName);
             System.out.println("Account ID      : " + accountID);
 
@@ -363,12 +411,14 @@ public class DepositManager {
                     amount
             );
 
-            System.out.println("------------------------------------------");
+            displaySectionHeader("REQUEST DETAILS");
+
             System.out.println("Request ID      : " + pendingID);
             System.out.println("Request Type    : DEPOSIT");
             System.out.println("Status          : PENDING");
             System.out.println("Submitted At    : " + dateTime);
-            System.out.println("------------------------------------------");
+
+            displaySectionHeader("IMPORTANT");
 
             System.out.println("Your deposit request has been recorded.");
             System.out.println("Please wait for staff approval.");
@@ -376,7 +426,6 @@ public class DepositManager {
             System.out.println("Your account balance has NOT been updated.");
             System.out.println("Reward points will only be credited");
             System.out.println("after the deposit is approved.");
-            System.out.println("==========================================");
 
             pause();
 
@@ -498,6 +547,10 @@ public class DepositManager {
 
             System.out.print("Enter your choice: ");
 
+            if (!scanner.hasNextLine()) {
+                return max;
+            }
+
             String input = scanner.nextLine().trim();
 
             try {
@@ -526,12 +579,10 @@ public class DepositManager {
 
     private void showFailure(String message) {
 
-        System.out.println("\n==========================================");
-        System.out.println("               DEPOSIT FAILED");
-        System.out.println("==========================================");
+        displayScreenHeader("DEPOSIT FAILED");
+
         System.out.println("Error: " + message);
         System.out.println("Your balance has not been changed.");
-        System.out.println("==========================================");
 
         pause();
     }
@@ -546,7 +597,9 @@ public class DepositManager {
                 "\nPress Enter to return to the dashboard."
         );
 
-        scanner.nextLine();
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 
     // ==========================================

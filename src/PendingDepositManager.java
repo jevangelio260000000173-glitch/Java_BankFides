@@ -12,13 +12,19 @@ import java.util.Scanner;
 
 public class PendingDepositManager {
 
+    private static final int SCREEN_GAP = 2;
+    private static final String MAIN_LINE =
+            "============================================================";
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     private final Scanner scanner;
     private final FileDatabase database;
     private final Transaction_Protection security;
 
-    // ==========================================
+    // =========================================================
     // REWARD SETTINGS
-    // ==========================================
+    // =========================================================
 
     private static final BigDecimal MINIMUM_REWARD_DEPOSIT =
             new BigDecimal("100.00");
@@ -39,9 +45,9 @@ public class PendingDepositManager {
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-    // ==========================================
+    // =========================================================
     // CONSTRUCTOR
-    // ==========================================
+    // =========================================================
 
     public PendingDepositManager(
             Scanner scanner,
@@ -72,19 +78,23 @@ public class PendingDepositManager {
 
         do {
 
-            System.out.println("\n==================================================");
-            System.out.println("             PENDING DEPOSIT MANAGEMENT");
-            System.out.println("==================================================");
+            displayScreenHeader("PENDING DEPOSIT MANAGEMENT");
+
             System.out.println("Staff ID: " + staffID);
-            System.out.println("--------------------------------------------------");
+
+            displaySectionHeader("PENDING REQUEST SUMMARY");
+
             System.out.println(
                     "Pending Requests: " + database.countPendingDeposits()
             );
-            System.out.println("==================================================");
+
+            System.out.println();
             System.out.println("[1] View Pending Deposits");
             System.out.println("[2] Review Deposit Request");
             System.out.println("[3] Return to Staff Dashboard");
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             choice = readChoice(1, 3);
 
@@ -116,9 +126,7 @@ public class PendingDepositManager {
 
         List<String> records = database.readPendingDeposits();
 
-        System.out.println("\n==================================================");
-        System.out.println("               PENDING DEPOSIT LIST");
-        System.out.println("==================================================");
+        displayScreenHeader("PENDING DEPOSIT LIST");
 
         int count = 0;
 
@@ -150,22 +158,23 @@ public class PendingDepositManager {
                 continue;
             }
 
-            System.out.println("------------------------------------------");
-            System.out.println("Pending ID      : " + fields[0]);
-            System.out.println("Account ID      : " + fields[1]);
+            displaySectionHeader("DEPOSIT REQUEST");
+
+            System.out.println("Pending ID   : " + fields[0]);
+            System.out.println("Account ID   : " + fields[1]);
 
             System.out.printf(
-                    "Amount          : PHP %,.2f%n",
+                    "Amount       : PHP %,.2f%n",
                     amount
             );
 
-            System.out.println("Submitted At    : " + fields[3]);
-            System.out.println("Status          : " + fields[4]);
+            System.out.println("Submitted At : " + fields[3]);
+            System.out.println("Status       : " + fields[4]);
 
             count++;
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("REQUEST SUMMARY");
 
         if (count == 0) {
             System.out.println(
@@ -175,7 +184,8 @@ public class PendingDepositManager {
             System.out.println("Total Pending Requests: " + count);
         }
 
-        System.out.println("==================================================");
+        System.out.println();
+        System.out.println(MAIN_LINE);
 
         pause();
     }
@@ -186,9 +196,7 @@ public class PendingDepositManager {
 
     private void reviewDepositRequest(String staffID) {
 
-        System.out.println("\n==================================================");
-        System.out.println("             REVIEW DEPOSIT REQUEST");
-        System.out.println("==================================================");
+        displayScreenHeader("REVIEW DEPOSIT REQUEST");
 
         if (database.countPendingDeposits() == 0) {
 
@@ -198,6 +206,11 @@ public class PendingDepositManager {
         }
 
         System.out.print("Enter Pending Deposit ID: ");
+
+        if (!scanner.hasNextLine()) {
+            return;
+        }
+
         String pendingID = scanner.nextLine().trim();
 
         if (pendingID.isEmpty()) {
@@ -212,7 +225,7 @@ public class PendingDepositManager {
         if (record == null) {
 
             System.out.println(
-                    "Deposit request not found or multiple matching records exist."
+                    "\nDeposit request not found or multiple matching records exist."
             );
 
             pause();
@@ -265,25 +278,27 @@ public class PendingDepositManager {
 
         String fullName = decode(customerFields[1]);
 
-        System.out.println("\n--------------------------------------------------");
-        System.out.println("              DEPOSIT REQUEST DETAILS");
-        System.out.println("--------------------------------------------------");
-        System.out.println("Pending ID      : " + fields[0]);
-        System.out.println("Customer Name   : " + fullName);
-        System.out.println("Account ID      : " + accountID);
+        displaySectionHeader("DEPOSIT REQUEST DETAILS");
+
+        System.out.println("Pending ID    : " + fields[0]);
+        System.out.println("Customer Name : " + fullName);
+        System.out.println("Account ID    : " + accountID);
 
         System.out.printf(
-                "Deposit Amount  : PHP %,.2f%n",
+                "Deposit Amount: PHP %,.2f%n",
                 amount
         );
 
-        System.out.println("Submitted At    : " + fields[3]);
-        System.out.println("Current Status  : " + fields[4]);
-        System.out.println("--------------------------------------------------");
+        System.out.println("Submitted At  : " + fields[3]);
+        System.out.println("Current Status: " + fields[4]);
+
+        System.out.println();
         System.out.println("[1] Approve Deposit");
         System.out.println("[2] Reject Deposit");
         System.out.println("[3] Cancel / Return");
-        System.out.println("--------------------------------------------------");
+
+        System.out.println();
+        System.out.println(MAIN_LINE);
 
         int choice = readChoice(1, 3);
 
@@ -533,9 +548,8 @@ public class PendingDepositManager {
 
         // STEP 8: DISPLAY APPROVAL SUMMARY
 
-        System.out.println("\n==================================================");
-        System.out.println("               APPROVAL SUMMARY");
-        System.out.println("==================================================");
+        displayScreenHeader("APPROVAL SUMMARY");
+
         System.out.println("Pending ID      : " + pendingID);
         System.out.println("Customer Name   : " + fullName);
         System.out.println("Account ID      : " + accountID);
@@ -555,15 +569,19 @@ public class PendingDepositManager {
                 newBalance
         );
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("REWARD SUMMARY");
+
         System.out.println("Regular Points  : +" + regularPoints);
         System.out.println("Milestone Bonus : +" + milestoneBonus);
         System.out.println("Total Points    : +" + totalEarnedPoints);
         System.out.println("New Reward Total: " + newRewardPoints);
-        System.out.println("==================================================");
+
+        System.out.println();
         System.out.println("[1] Confirm Approval");
         System.out.println("[2] Cancel");
-        System.out.println("==================================================");
+
+        System.out.println();
+        System.out.println(MAIN_LINE);
 
         int choice = readChoice(1, 2);
 
@@ -662,9 +680,8 @@ public class PendingDepositManager {
 
             // STEP 12: DISPLAY APPROVAL RECEIPT
 
-            System.out.println("\n==================================================");
-            System.out.println("              DEPOSIT APPROVED!");
-            System.out.println("==================================================");
+            displayScreenHeader("DEPOSIT APPROVED!");
+
             System.out.println("Pending ID      : " + pendingID);
             System.out.println("Transaction ID  : " + transactionID);
             System.out.println("Reward ID       : " + rewardID);
@@ -686,16 +703,21 @@ public class PendingDepositManager {
                     newBalance
             );
 
-            System.out.println("------------------------------------------");
+            displaySectionHeader("REWARD SUMMARY");
+
             System.out.println("Regular Points  : +" + regularPoints);
             System.out.println("Milestone Bonus : +" + milestoneBonus);
             System.out.println("Total Points    : +" + totalEarnedPoints);
             System.out.println("Available Points: " + newRewardPoints);
-            System.out.println("------------------------------------------");
+
+            displaySectionHeader("REVIEW INFORMATION");
+
             System.out.println("Reviewed By     : " + staffID);
             System.out.println("Reviewed At     : " + reviewedAt);
             System.out.println("Status          : APPROVED");
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             pause();
 
@@ -742,15 +764,20 @@ public class PendingDepositManager {
             return;
         }
 
-        System.out.println("\n==================================================");
-        System.out.println("               REJECT DEPOSIT");
-        System.out.println("==================================================");
+        displayScreenHeader("REJECT DEPOSIT");
+
         System.out.println("Pending ID : " + pendingID);
         System.out.println("Account ID : " + fields[1]);
         System.out.println("Amount     : PHP " + fields[2]);
-        System.out.println("--------------------------------------------------");
+
+        displaySectionHeader("REJECTION DETAILS");
 
         System.out.print("Enter reason for rejection: ");
+
+        if (!scanner.hasNextLine()) {
+            return;
+        }
+
         String reason = scanner.nextLine().trim();
 
         if (reason.isEmpty()) {
@@ -760,7 +787,8 @@ public class PendingDepositManager {
             return;
         }
 
-        System.out.println("\n[1] Confirm Rejection");
+        System.out.println();
+        System.out.println("[1] Confirm Rejection");
         System.out.println("[2] Cancel");
 
         int choice = readChoice(1, 2);
@@ -815,22 +843,26 @@ public class PendingDepositManager {
                 );
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("              DEPOSIT REJECTED");
-            System.out.println("==================================================");
+            displayScreenHeader("DEPOSIT REJECTED");
+
             System.out.println("Pending ID  : " + pendingID);
             System.out.println("Account ID  : " + fields[1]);
             System.out.println("Amount      : PHP " + fields[2]);
             System.out.println("Reviewed By : " + staffID);
             System.out.println("Reviewed At : " + reviewedAt);
             System.out.println("Status      : REJECTED");
-            System.out.println("------------------------------------------");
-            System.out.println("Reason      : " + reason);
-            System.out.println("------------------------------------------");
+
+            displaySectionHeader("REJECTION REASON");
+
+            System.out.println("Reason: " + reason);
+
+            System.out.println();
             System.out.println(
                     "The customer's balance and rewards were not changed."
             );
-            System.out.println("==================================================");
+
+            System.out.println();
+            System.out.println(MAIN_LINE);
 
             pause();
 
@@ -1107,6 +1139,10 @@ public class PendingDepositManager {
 
             System.out.print("\nEnter your choice: ");
 
+            if (!scanner.hasNextLine()) {
+                return max;
+            }
+
             String input = scanner.nextLine().trim();
 
             try {
@@ -1132,16 +1168,51 @@ public class PendingDepositManager {
     }
 
     // =========================================================
+    // SCREEN DISPLAY METHODS
+    // =========================================================
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    // =========================================================
     // DISPLAY MESSAGE
     // =========================================================
 
     private void showMessage(String title, String message) {
 
-        System.out.println("\n==================================================");
-        System.out.println("               " + title);
-        System.out.println("==================================================");
+        displayScreenHeader(title);
+
         System.out.println(message);
-        System.out.println("==================================================");
+        System.out.println();
+        System.out.println(MAIN_LINE);
 
         pause();
     }
@@ -1153,6 +1224,9 @@ public class PendingDepositManager {
     private void pause() {
 
         System.out.print("\nPress Enter to continue...");
-        scanner.nextLine();
+
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 }

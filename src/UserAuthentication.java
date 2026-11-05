@@ -1,3 +1,4 @@
+
 package src;
 
 import java.nio.charset.StandardCharsets;
@@ -24,7 +25,16 @@ public class UserAuthentication {
 
     private static final int MAX_LOGIN_ATTEMPTS = 3;
 
-    // Password hashing settings
+    // UI SETTINGS
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
+    // PASSWORD HASHING SETTINGS
     private static final String HASH_PREFIX = "PBKDF2";
     private static final int HASH_ITERATIONS = 120000;
     private static final int HASH_KEY_LENGTH = 256;
@@ -51,14 +61,47 @@ public class UserAuthentication {
     }
 
     // =========================================================
+    // UI DISPLAY METHODS
+    // =========================================================
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("              SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
+    }
+
+    // =========================================================
     // CUSTOMER REGISTRATION
     // =========================================================
 
     public void registerCustomer() {
 
-        System.out.println("\n==================================================");
-        System.out.println("                CUSTOMER REGISTRATION");
-        System.out.println("==================================================");
+        displayScreenHeader("CUSTOMER REGISTRATION");
 
         String fullName = readValidAccountField("Enter full name: ");
 
@@ -122,18 +165,19 @@ public class UserAuthentication {
             );
         }
 
-        System.out.println("\n==================================================");
-        System.out.println("             CONFIRM ACCOUNT DETAILS");
-        System.out.println("==================================================");
+        displayScreenHeader("CONFIRM ACCOUNT DETAILS");
+
         System.out.println("Full Name       : " + fullName);
         System.out.println("Username        : " + username);
         System.out.println("Account Type    : Customer");
         System.out.println("Initial Balance : PHP 0.00");
         System.out.println("Password        : [Hidden]");
-        System.out.println("==================================================");
+
+        displaySectionHeader("REGISTRATION OPTIONS");
+
         System.out.println("[1] Confirm and Create Account");
         System.out.println("[2] Cancel Registration");
-        System.out.println("==================================================");
+        System.out.println();
 
         int confirmation = readChoice(
                 "Enter your choice: ", 1, 2
@@ -141,14 +185,16 @@ public class UserAuthentication {
 
         if (confirmation == 2) {
 
-            System.out.println("\nRegistration cancelled.");
+            displayScreenHeader("REGISTRATION CANCELLED");
+            System.out.println("Your registration was cancelled.");
             return;
         }
 
         if (usernameExists(username)) {
 
+            displayScreenHeader("REGISTRATION FAILED");
             System.out.println(
-                    "\nRegistration failed. The username is already in use."
+                    "The username is already in use."
             );
 
             return;
@@ -168,8 +214,9 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("REGISTRATION FAILED");
             System.out.println(
-                    "\nRegistration failed. Unable to secure the password."
+                    "Unable to secure the password."
             );
 
             return;
@@ -204,20 +251,20 @@ public class UserAuthentication {
 
             logActivity("CUSTOMER_REGISTERED|" + accountID);
 
-            System.out.println("\n==================================================");
-            System.out.println("        REGISTRATION SUCCESSFUL");
-            System.out.println("==================================================");
+            displayScreenHeader("REGISTRATION SUCCESSFUL");
+
             System.out.println("Customer ID : " + accountID);
             System.out.println("Full Name   : " + fullName);
             System.out.println("Username    : " + username);
             System.out.println("Balance     : PHP 0.00");
             System.out.println("Password    : [Hidden]");
             System.out.println("Status      : ACTIVE");
-            System.out.println("==================================================");
+
+            displaySectionHeader("NEXT STEP");
 
             System.out.println("[1] Proceed to Login");
             System.out.println("[2] Return to Main Menu");
-            System.out.println("==================================================");
+            System.out.println();
 
             int nextChoice = readChoice(
                     "Enter your choice: ", 1, 2
@@ -229,8 +276,10 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("REGISTRATION FAILED");
+
             System.out.println(
-                    "\nRegistration failed. Unable to save the account."
+                    "Unable to save the account."
             );
 
             System.out.println("Reason: " + e.getMessage());
@@ -247,9 +296,7 @@ public class UserAuthentication {
 
             loadCustomers();
 
-            System.out.println("\n==================================================");
-            System.out.println("                     LOGIN");
-            System.out.println("==================================================");
+            displayScreenHeader("LOGIN");
 
             String username = readValidAccountField("Enter username: ");
 
@@ -270,9 +317,7 @@ public class UserAuthentication {
 
             Customer customer = findCustomer(username);
 
-            // -------------------------------------------------
             // IDENTIFY CUSTOMER ACCOUNT
-            // -------------------------------------------------
 
             if (customer != null) {
 
@@ -282,9 +327,7 @@ public class UserAuthentication {
                 storedPassword = customer.password;
             }
 
-            // -------------------------------------------------
             // IDENTIFY STAFF ACCOUNT
-            // -------------------------------------------------
 
             if (accountID == null) {
 
@@ -309,8 +352,10 @@ public class UserAuthentication {
 
                     } catch (IllegalArgumentException e) {
 
+                        displayScreenHeader("LOGIN ERROR");
+
                         System.out.println(
-                                "\nUnable to read the staff account record."
+                                "Unable to read the staff account record."
                         );
 
                         logActivity("LOGIN_FAILED_INVALID_STAFF_RECORD");
@@ -319,9 +364,7 @@ public class UserAuthentication {
                 }
             }
 
-            // -------------------------------------------------
             // IDENTIFY ADMIN ACCOUNT
-            // -------------------------------------------------
 
             if (accountID == null) {
 
@@ -346,8 +389,10 @@ public class UserAuthentication {
 
                     } catch (IllegalArgumentException e) {
 
+                        displayScreenHeader("LOGIN ERROR");
+
                         System.out.println(
-                                "\nUnable to read the administrator record."
+                                "Unable to read the administrator record."
                         );
 
                         logActivity("LOGIN_FAILED_INVALID_ADMIN_RECORD");
@@ -356,17 +401,13 @@ public class UserAuthentication {
                 }
             }
 
-            // -------------------------------------------------
             // UNKNOWN USERNAME
-            // -------------------------------------------------
 
             if (accountID == null) {
 
-                System.out.println("\n==================================================");
-                System.out.println("                  LOGIN FAILED");
-                System.out.println("==================================================");
+                displayScreenHeader("LOGIN FAILED");
+
                 System.out.println("Incorrect username or password.");
-                System.out.println("==================================================");
 
                 logActivity("LOGIN_FAILED_UNKNOWN_USERNAME");
 
@@ -377,9 +418,7 @@ public class UserAuthentication {
                 continue;
             }
 
-            // -------------------------------------------------
             // CHECK TEMPORARY ACCOUNT LOCKOUT
-            // -------------------------------------------------
 
             if (database.isLoginLocked(accountID)) {
 
@@ -396,9 +435,7 @@ public class UserAuthentication {
                 continue;
             }
 
-            // -------------------------------------------------
             // VERIFY PASSWORD
-            // -------------------------------------------------
 
             boolean passwordCorrect;
 
@@ -411,8 +448,10 @@ public class UserAuthentication {
 
             } catch (RuntimeException e) {
 
+                displayScreenHeader("LOGIN ERROR");
+
                 System.out.println(
-                        "\nUnable to verify the account password."
+                        "Unable to verify the account password."
                 );
 
                 logActivity(
@@ -426,9 +465,8 @@ public class UserAuthentication {
 
                 int attempts = database.recordFailedLogin(accountID);
 
-                System.out.println("\n==================================================");
-                System.out.println("                  LOGIN FAILED");
-                System.out.println("==================================================");
+                displayScreenHeader("LOGIN FAILED");
+
                 System.out.println("Incorrect username or password.");
 
                 logActivity(
@@ -437,8 +475,9 @@ public class UserAuthentication {
 
                 if (attempts == -1) {
 
+                    System.out.println();
                     System.out.println(
-                            "\nUnable to save login security information."
+                            "Unable to save login security information."
                     );
 
                     System.out.println(
@@ -447,7 +486,8 @@ public class UserAuthentication {
 
                 } else if (attempts >= MAX_LOGIN_ATTEMPTS) {
 
-                    System.out.println("\nACCOUNT TEMPORARILY LOCKED!");
+                    System.out.println();
+                    System.out.println("ACCOUNT TEMPORARILY LOCKED!");
 
                     System.out.println(
                             "You have reached the maximum of "
@@ -464,8 +504,9 @@ public class UserAuthentication {
 
                     int remaining = MAX_LOGIN_ATTEMPTS - attempts;
 
+                    System.out.println();
                     System.out.println(
-                            "\nFailed attempts: " + attempts
+                            "Failed attempts: " + attempts
                             + " out of " + MAX_LOGIN_ATTEMPTS
                     );
 
@@ -474,8 +515,6 @@ public class UserAuthentication {
                     );
                 }
 
-                System.out.println("==================================================");
-
                 if (!askRetryLogin()) {
                     return;
                 }
@@ -483,14 +522,14 @@ public class UserAuthentication {
                 continue;
             }
 
-            // -------------------------------------------------
             // RESET FAILED LOGIN ATTEMPTS
-            // -------------------------------------------------
 
             if (!database.resetLoginAttempts(accountID)) {
 
+                displayScreenHeader("LOGIN CANCELLED");
+
                 System.out.println(
-                        "\nUnable to reset login security information."
+                        "Unable to reset login security information."
                 );
 
                 System.out.println(
@@ -504,21 +543,18 @@ public class UserAuthentication {
                 return;
             }
 
-            // -------------------------------------------------
             // VERIFY ACCOUNT STATUS
-            // -------------------------------------------------
 
             if (!canLogin(accountID)) {
                 return;
             }
 
-            // -------------------------------------------------
             // CUSTOMER LOGIN
-            // -------------------------------------------------
 
             if ("CUSTOMER".equals(accountRole)) {
 
-                System.out.println("\nCustomer login successful!");
+                displayScreenHeader("CUSTOMER LOGIN SUCCESSFUL");
+
                 System.out.println("Welcome, " + accountName + "!");
 
                 logActivity("CUSTOMER_LOGIN|" + accountID);
@@ -551,13 +587,12 @@ public class UserAuthentication {
                 return;
             }
 
-            // -------------------------------------------------
             // STAFF LOGIN
-            // -------------------------------------------------
 
             if ("STAFF".equals(accountRole)) {
 
-                System.out.println("\nStaff login successful!");
+                displayScreenHeader("STAFF LOGIN SUCCESSFUL");
+
                 System.out.println("Welcome, " + accountName + "!");
 
                 logActivity("STAFF_LOGIN|" + accountID);
@@ -575,13 +610,12 @@ public class UserAuthentication {
                 return;
             }
 
-            // -------------------------------------------------
             // ADMIN LOGIN
-            // -------------------------------------------------
 
             if ("ADMIN".equals(accountRole)) {
 
-                System.out.println("\nAdmin login successful!");
+                displayScreenHeader("ADMIN LOGIN SUCCESSFUL");
+
                 System.out.println("Welcome, " + accountName + "!");
 
                 logActivity("ADMIN_LOGIN|" + accountID);
@@ -629,7 +663,6 @@ public class UserAuthentication {
         }
 
         // Fallback for NetBeans Output window.
-        // Scanner keeps the application compatible with the IDE.
         System.out.print(prompt);
 
         if (!scanner.hasNextLine()) {
@@ -771,9 +804,8 @@ public class UserAuthentication {
         long minutes = remainingSeconds / 60;
         long seconds = remainingSeconds % 60;
 
-        System.out.println("\n==================================================");
-        System.out.println("              ACCOUNT TEMPORARILY LOCKED");
-        System.out.println("==================================================");
+        displaySectionHeader("ACCOUNT TEMPORARILY LOCKED");
+
         System.out.println("Account ID       : " + accountID);
         System.out.println("Maximum Attempts : " + MAX_LOGIN_ATTEMPTS);
         System.out.println("Reason           : Too many incorrect passwords.");
@@ -783,8 +815,6 @@ public class UserAuthentication {
                 minutes,
                 seconds
         );
-
-        System.out.println("==================================================");
     }
 
     // =========================================================
@@ -793,9 +823,11 @@ public class UserAuthentication {
 
     private boolean askRetryLogin() {
 
-        System.out.println("\n[1] Try Again");
+        displaySectionHeader("LOGIN OPTIONS");
+
+        System.out.println("[1] Try Again");
         System.out.println("[2] Return to Main Menu");
-        System.out.println("==================================================");
+        System.out.println();
 
         int choice = readChoice(
                 "Enter your choice: ", 1, 2
@@ -812,8 +844,10 @@ public class UserAuthentication {
 
         if (!database.ensureAccountStatus(accountID)) {
 
+            displayScreenHeader("LOGIN ERROR");
+
             System.out.println(
-                    "\nUnable to verify account status."
+                    "Unable to verify account status."
             );
 
             return false;
@@ -823,12 +857,10 @@ public class UserAuthentication {
 
         if (!"ACTIVE".equals(status)) {
 
-            System.out.println("\n==================================================");
-            System.out.println("                 LOGIN BLOCKED");
-            System.out.println("==================================================");
+            displayScreenHeader("LOGIN BLOCKED");
+
             System.out.println("This account is currently INACTIVE.");
             System.out.println("Please contact the administrator.");
-            System.out.println("==================================================");
 
             logActivity(
                     "LOGIN_BLOCKED_INACTIVE|" + accountID
@@ -848,13 +880,12 @@ public class UserAuthentication {
 
         while (true) {
 
-            System.out.println("\n==================================================");
-            System.out.println("             STAFF ACCOUNT MANAGEMENT");
-            System.out.println("==================================================");
+            displayScreenHeader("STAFF ACCOUNT MANAGEMENT");
+
             System.out.println("[1] Create Staff Account");
             System.out.println("[2] View All Staff Accounts");
             System.out.println("[3] Return to Admin Dashboard");
-            System.out.println("==================================================");
+            System.out.println();
 
             int choice = readChoice(
                     "Choose an option: ", 1, 3
@@ -885,9 +916,7 @@ public class UserAuthentication {
 
     public void createStaffAccount() {
 
-        System.out.println("\n==================================================");
-        System.out.println("               CREATE STAFF ACCOUNT");
-        System.out.println("==================================================");
+        displayScreenHeader("CREATE STAFF ACCOUNT");
 
         String fullName = readValidAccountField(
                 "Enter staff full name: "
@@ -957,8 +986,10 @@ public class UserAuthentication {
 
         if (usernameExists(username)) {
 
+            displayScreenHeader("STAFF ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to create staff account. Username already exists."
+                    "Username already exists."
             );
 
             return;
@@ -972,8 +1003,10 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("STAFF ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to secure the staff account password."
+                    "Unable to secure the staff account password."
             );
 
             return;
@@ -1003,15 +1036,13 @@ public class UserAuthentication {
                 );
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("       STAFF ACCOUNT CREATED SUCCESSFULLY");
-            System.out.println("==================================================");
+            displayScreenHeader("STAFF ACCOUNT CREATED");
+
             System.out.println("Staff ID  : " + staffID);
             System.out.println("Full Name : " + fullName);
             System.out.println("Username  : " + username);
             System.out.println("Password  : [Hidden]");
             System.out.println("Status    : ACTIVE");
-            System.out.println("==================================================");
 
             logActivity(
                     "STAFF_ACCOUNT_CREATED|" + staffID
@@ -1019,8 +1050,10 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("STAFF ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to create staff account."
+                    "Unable to create staff account."
             );
 
             System.out.println("Reason: " + e.getMessage());
@@ -1033,9 +1066,7 @@ public class UserAuthentication {
 
     public void viewStaffAccounts() {
 
-        System.out.println("\n==================================================");
-        System.out.println("                  STAFF ACCOUNTS");
-        System.out.println("==================================================");
+        displayScreenHeader("STAFF ACCOUNTS");
 
         List<String> staffRecords = database.readStaff();
 
@@ -1071,7 +1102,8 @@ public class UserAuthentication {
                 String username = decode(fields[2]);
                 String status = database.getAccountStatus(staffID);
 
-                System.out.println("------------------------------------------");
+                displaySectionHeader("STAFF ACCOUNT " + (count + 1));
+
                 System.out.println("Staff ID  : " + staffID);
                 System.out.println("Full Name : " + fullName);
                 System.out.println("Username  : " + username);
@@ -1087,9 +1119,9 @@ public class UserAuthentication {
             }
         }
 
-        System.out.println("------------------------------------------");
+        displaySectionHeader("ACCOUNT SUMMARY");
+
         System.out.println("Total staff accounts: " + count);
-        System.out.println("==================================================");
     }
 
     // =========================================================
@@ -1098,9 +1130,7 @@ public class UserAuthentication {
 
     public void createAdminAccount() {
 
-        System.out.println("\n==================================================");
-        System.out.println("               CREATE ADMIN ACCOUNT");
-        System.out.println("==================================================");
+        displayScreenHeader("CREATE ADMIN ACCOUNT");
 
         String fullName = readValidAccountField(
                 "Enter admin full name: "
@@ -1171,8 +1201,10 @@ public class UserAuthentication {
         // Check again before saving the account.
         if (usernameExists(username)) {
 
+            displayScreenHeader("ADMIN ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to create admin account. Username already exists."
+                    "Username already exists."
             );
 
             return;
@@ -1186,8 +1218,10 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("ADMIN ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to secure the admin account password."
+                    "Unable to secure the admin account password."
             );
 
             return;
@@ -1217,15 +1251,13 @@ public class UserAuthentication {
                 );
             }
 
-            System.out.println("\n==================================================");
-            System.out.println("       ADMIN ACCOUNT CREATED SUCCESSFULLY");
-            System.out.println("==================================================");
+            displayScreenHeader("ADMIN ACCOUNT CREATED");
+
             System.out.println("Admin ID  : " + adminID);
             System.out.println("Full Name : " + fullName);
             System.out.println("Username  : " + username);
             System.out.println("Password  : [Hidden]");
             System.out.println("Status    : ACTIVE");
-            System.out.println("==================================================");
 
             logActivity(
                     "ADMIN_ACCOUNT_CREATED|" + adminID
@@ -1233,8 +1265,10 @@ public class UserAuthentication {
 
         } catch (RuntimeException e) {
 
+            displayScreenHeader("ADMIN ACCOUNT CREATION FAILED");
+
             System.out.println(
-                    "\nUnable to create admin account."
+                    "Unable to create admin account."
             );
 
             System.out.println("Reason: " + e.getMessage());
@@ -1406,7 +1440,8 @@ public class UserAuthentication {
                 return;
             }
 
-            System.out.println("\nDefault administrator account created.");
+            System.out.println();
+            System.out.println("Default administrator account created.");
             System.out.println("Username: " + DEFAULT_ADMIN_USERNAME);
             System.out.println("Password: [Hidden]");
 
@@ -1838,7 +1873,7 @@ public class UserAuthentication {
 
         while (true) {
 
-            System.out.print(prompt);
+            System.out.print("\n" + prompt);
 
             if (!scanner.hasNextLine()) {
                 return max;

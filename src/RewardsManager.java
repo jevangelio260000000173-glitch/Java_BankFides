@@ -13,6 +13,14 @@ public class RewardsManager {
     private final Scanner scanner;
     private final FileDatabase database;
 
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
     // SAVE-TO-EARN MILESTONES
     private static final BigDecimal[] MILESTONES = {
         new BigDecimal("5000.00"),
@@ -24,9 +32,47 @@ public class RewardsManager {
         25, 50, 100
     };
 
+    // ==========================================
+    // CONSTRUCTORS
+    // ==========================================
+
     public RewardsManager(Scanner scanner, FileDatabase database) {
         this.scanner = scanner;
         this.database = database;
+    }
+
+    // ==========================================
+    // SCREEN FORMATTING
+    // ==========================================
+
+    private void screenGap() {
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
+        }
+    }
+
+    private void displayScreenHeader(String title) {
+
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    BANCOFIDES");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    " + title);
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
+    }
+
+    private void displaySectionHeader(String title) {
+
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                    " + title);
+        System.out.println(SECTION_LINE);
+        System.out.println();
     }
 
     // ==========================================
@@ -38,14 +84,13 @@ public class RewardsManager {
         int choice;
 
         do {
-            System.out.println("\n==================================================");
-            System.out.println("                 SAVE-TO-EARN REWARDS");
-            System.out.println("==================================================");
+            displayScreenHeader("SAVE-TO-EARN REWARDS");
+
             System.out.println("[1] View Reward Points");
             System.out.println("[2] View Reward History");
             System.out.println("[3] View Milestone Progress");
             System.out.println("[4] Return to Customer Dashboard");
-            System.out.println("==================================================");
+            System.out.println();
 
             choice = readChoice(1, 4);
 
@@ -96,21 +141,21 @@ public class RewardsManager {
             int rewardPoints =
                     Integer.parseInt(customer[6]);
 
-            System.out.println("\n==================================================");
-            System.out.println("                  REWARD SUMMARY");
-            System.out.println("==================================================");
-            System.out.println("Customer Name       : " + fullName);
-            System.out.println("Account ID          : " + accountID);
+            displayScreenHeader("REWARD SUMMARY");
+
+            System.out.println("Customer Name    : " + fullName);
+            System.out.println("Account ID       : " + accountID);
 
             System.out.printf(
-                    "Total Deposits      : PHP %,.2f%n",
+                    "Total Deposits   : PHP %,.2f%n",
                     totalDeposits
             );
 
-            System.out.println("Available Points    : " + rewardPoints);
-            System.out.println("==================================================");
+            System.out.println("Available Points : " + rewardPoints);
+
+            displaySectionHeader("KEEP SAVING!");
+
             System.out.println("Keep saving to earn more reward points!");
-            System.out.println("==================================================");
 
         } catch (NumberFormatException e) {
 
@@ -147,11 +192,11 @@ public class RewardsManager {
             }
         }
 
-        System.out.println("\n==================================================");
-        System.out.println("                  REWARD HISTORY");
-        System.out.println("==================================================");
+        displayScreenHeader("REWARD HISTORY");
+
         System.out.println("Account ID: " + accountID);
-        System.out.println("--------------------------------------------------");
+
+        displaySectionHeader("REWARD RECORDS");
 
         if (customerRewards.isEmpty()) {
 
@@ -174,7 +219,7 @@ public class RewardsManager {
 
                     totalPointsEarned += pointsEarned;
 
-                    System.out.println("\nReward ID       : " + reward[0]);
+                    System.out.println("Reward ID       : " + reward[0]);
                     System.out.println("Transaction ID  : " + reward[2]);
 
                     System.out.printf(
@@ -184,7 +229,7 @@ public class RewardsManager {
 
                     System.out.println("Points Earned   : " + pointsEarned);
                     System.out.println("Date and Time   : " + reward[5]);
-                    System.out.println("--------------------------------------------------");
+                    System.out.println(SECTION_LINE);
 
                 } catch (NumberFormatException e) {
 
@@ -194,13 +239,14 @@ public class RewardsManager {
                 }
             }
 
+            displaySectionHeader("REWARD TOTAL");
+
             System.out.println(
-                    "\nTotal Points Earned from Recorded Rewards: "
+                    "Total Points Earned from Recorded Rewards: "
                     + totalPointsEarned
             );
         }
 
-        System.out.println("==================================================");
         pause();
     }
 
@@ -222,16 +268,14 @@ public class RewardsManager {
             BigDecimal totalDeposits =
                     new BigDecimal(customer[5]);
 
-            System.out.println("\n==================================================");
-            System.out.println("                MILESTONE PROGRESS");
-            System.out.println("==================================================");
+            displayScreenHeader("MILESTONE PROGRESS");
 
             System.out.printf(
                     "Your Cumulative Deposits: PHP %,.2f%n",
                     totalDeposits
             );
 
-            System.out.println("--------------------------------------------------");
+            displaySectionHeader("SAVINGS MILESTONES");
 
             BigDecimal nextMilestone = null;
 
@@ -266,7 +310,7 @@ public class RewardsManager {
                 }
             }
 
-            System.out.println("--------------------------------------------------");
+            displaySectionHeader("MILESTONE SUMMARY");
 
             if (nextMilestone != null) {
 
@@ -290,12 +334,12 @@ public class RewardsManager {
                     + totalUnlockedBonus
             );
 
-            System.out.println("==================================================");
-
         } catch (NumberFormatException e) {
 
+            displayScreenHeader("MILESTONE PROGRESS");
+
             System.out.println(
-                    "\nUnable to calculate milestone progress."
+                    "Unable to calculate milestone progress."
             );
         }
 
@@ -363,6 +407,10 @@ public class RewardsManager {
 
             System.out.print("Enter your choice: ");
 
+            if (!scanner.hasNextLine()) {
+                return max;
+            }
+
             String input = scanner.nextLine().trim();
 
             try {
@@ -390,13 +438,19 @@ public class RewardsManager {
 
     private void showMessage(String message) {
 
-        System.out.println("\n" + message);
+        displayScreenHeader("REWARDS MESSAGE");
+
+        System.out.println(message);
+
         pause();
     }
 
     private void pause() {
 
         System.out.print("\nPress Enter to continue...");
-        scanner.nextLine();
+
+        if (scanner.hasNextLine()) {
+            scanner.nextLine();
+        }
     }
 }

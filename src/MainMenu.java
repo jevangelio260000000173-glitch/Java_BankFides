@@ -9,9 +9,21 @@ public class MainMenu {
     private final FileDatabase database;
     private final UserAuthentication auth;
 
-    // ==========================================
+    private boolean firstMenuDisplay = true;
+
+    // UI SPACING AND DIVIDERS
+
+    private static final int SCREEN_GAP = 2;
+
+    private static final String MAIN_LINE =
+            "============================================================";
+
+    private static final String SECTION_LINE =
+            "------------------------------------------------------------";
+
+    // =========================================================
     // CONSTRUCTOR
-    // ==========================================
+    // =========================================================
 
     public MainMenu() {
 
@@ -20,9 +32,9 @@ public class MainMenu {
         this.auth = new UserAuthentication(scanner, database);
     }
 
-    // ==========================================
+    // =========================================================
     // MAIN MENU
-    // ==========================================
+    // =========================================================
 
     public void displayMenu() {
 
@@ -37,8 +49,6 @@ public class MainMenu {
 
                 case 1:
 
-                    System.out.println("\nOpening Registration...");
-
                     auth.registerCustomer();
 
                     pauseBeforeReturning();
@@ -46,8 +56,6 @@ public class MainMenu {
                     break;
 
                 case 2:
-
-                    System.out.println("\nOpening Login...");
 
                     auth.login();
 
@@ -63,8 +71,9 @@ public class MainMenu {
 
                 default:
 
+                    System.out.println();
                     System.out.println(
-                            "\nInvalid choice! Please select 1, 2, or 3."
+                            "Invalid choice! Please select 1, 2, or 3."
                     );
 
                     pauseBeforeReturning();
@@ -75,40 +84,51 @@ public class MainMenu {
         } while (choice != 3);
     }
 
-    // ==========================================
+    // =========================================================
     // DISPLAY MAIN MENU
-    // ==========================================
+    // =========================================================
 
     private void displayMainMenu() {
 
-        System.out.println("\n==================================================");
-        System.out.println("             WELCOME TO BANCOFIDES!");
-        System.out.println("           SAVINGS MANAGEMENT SYSTEM");
-        System.out.println("==================================================");
-        System.out.println("             Your Savings, Your Future.");
-        System.out.println("==================================================");
+        if (!firstMenuDisplay) {
+            screenGap();
+        }
+
+        firstMenuDisplay = false;
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("                    WELCOME TO BANCOFIDES!");
+        System.out.println("                  SAVINGS MANAGEMENT SYSTEM");
+        System.out.println();
+        System.out.println("                    Your Savings, Your Future.");
+        System.out.println();
+        System.out.println(MAIN_LINE);
 
         System.out.println();
-        System.out.println("                    MAIN MENU");
+        System.out.println("                         MAIN MENU");
         System.out.println();
 
-        System.out.println("              [1] Register Account");
-        System.out.println("              [2] Login");
-        System.out.println("              [3] Exit");
+        System.out.println("                  [1] Register Account");
+        System.out.println();
+        System.out.println("                  [2] Login");
+        System.out.println();
+        System.out.println("                  [3] Exit");
 
         System.out.println();
-        System.out.println("==================================================");
+        System.out.println(MAIN_LINE);
+        System.out.println();
     }
 
-    // ==========================================
+    // =========================================================
     // MENU INPUT VALIDATION
-    // ==========================================
+    // =========================================================
 
     private int readMenuChoice() {
 
         while (true) {
 
-            System.out.print("Enter your choice: ");
+            System.out.print("Select an option (1-3): ");
 
             if (!scanner.hasNextLine()) {
                 return 3;
@@ -124,44 +144,70 @@ public class MainMenu {
                     return choice;
                 }
 
+                System.out.println();
                 System.out.println(
-                        "\nInvalid choice! Please enter 1, 2, or 3.\n"
+                        "Invalid choice! Please enter 1, 2, or 3."
                 );
+                System.out.println();
 
             } catch (NumberFormatException e) {
 
+                System.out.println();
                 System.out.println(
-                        "\nInvalid input! Please enter a number.\n"
+                        "Invalid input! Please enter a number."
                 );
+                System.out.println();
             }
         }
     }
 
-    // ==========================================
+    // =========================================================
     // EXIT MESSAGE
-    // ==========================================
+    // =========================================================
 
     private void displayExitMessage() {
 
-        System.out.println("\n==================================================");
-        System.out.println("          THANK YOU FOR USING BANCOFIDES!");
-        System.out.println("             Your Savings, Your Future.");
-        System.out.println("==================================================");
+        screenGap();
+
+        System.out.println(MAIN_LINE);
+        System.out.println();
+        System.out.println("              THANK YOU FOR USING BANCOFIDES!");
+        System.out.println();
+        System.out.println("                  Your Savings, Your Future.");
+        System.out.println();
+        System.out.println(MAIN_LINE);
+        System.out.println();
         System.out.println("Exiting the system. Goodbye!");
+        System.out.println();
     }
 
-    // ==========================================
-    // PAUSE BEFORE RETURNING TO MENU
-    // ==========================================
+    // =========================================================
+    // PAUSE BEFORE RETURNING TO MAIN MENU
+    // =========================================================
 
     private void pauseBeforeReturning() {
 
-        System.out.println(
-                "\nPress Enter to return to the main menu..."
-        );
+        System.out.println();
+        System.out.println(SECTION_LINE);
+        System.out.println("                 END OF CURRENT SCREEN");
+        System.out.println(SECTION_LINE);
+        System.out.println();
+
+        System.out.print("Press Enter to return to the Main Menu...");
 
         if (scanner.hasNextLine()) {
             scanner.nextLine();
+        }
+    }
+
+    // =========================================================
+    // SCREEN SPACING
+    // =========================================================
+
+    private void screenGap() {
+
+        for (int i = 0; i < SCREEN_GAP; i++) {
+            System.out.println();
         }
     }
 }
