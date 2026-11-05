@@ -7,7 +7,7 @@ A secure and modular Java-based banking management application built for teamwor
 | Feature Component | Assigned Group Member | Description |
 | :--- | :--- | :--- |
 | UserAuthentication.java | JAMIE VINCENT M. EVANGELIO | User Registration and Login |
-| Dashboard.java | JAMIE VINCENT M. EVANGELIO | Main Dashboard UI/Console summary |
+| Dashboard.java | JAMIE VINCENT M. EVANGELIO | Main Dashboard UI |
 | DepositManager.java | KURTNEY LOVE S. GARCES | Cash In and Deposit Management |
 | TransactionHistory.java | KURTNEY LOVE S. GARCES| Transaction Logging and History Statements |
 | AccountManager.java | JOSHUA R. SAGARINO | Customer Account Records and Information |
