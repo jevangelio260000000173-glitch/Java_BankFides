@@ -10,8 +10,8 @@ A secure and modular Java-based banking management application built for teamwor
 | Dashboard.java | JAMIE VINCENT M. EVANGELIO | Main Dashboard UI/Console summary |
 | DepositManager.java | KURTNEY LOVE S. GARCES | Cash In and Deposit Management |
 | TransactionHistory.java | KURTNEY LOVE S. GARCES| Transaction Logging and History Statements |
-| AccountManager.java | JOSHUA R. SAGARINO | User Profile and PIN Security Management |
-| TransactionProtection.java | LEI JIARHDYN G. QUITORAS | OTP Verification and Security Limits |
+| AccountManager.java | JOSHUA R. SAGARINO | Customer Account Records and Information |
+| TransactionProtection.java | LEI JIARHDYN G. QUITORAS | Login Security and Transaction Validation |
 | InterestGrowthCalculator.java | LEI JIARHDYN G. QUITORAS | Interest Growth and Yield Calculations |
 | RewardsManager.java | ALIXANDREI NIKKOLE T. AGTON | Save-to-Earn Rewards and Milestones |
 
